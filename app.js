@@ -9,6 +9,14 @@ let _spriteUrlCache = {};     // file path → blob URL
 let _variantSpriteByPath = {};// variant path → sprite file path
 let _spriteTooltip = null;
 
+// ── RISK ANALYSIS STATE ───────────────────────────────────────────────────────
+let _riskGraph = {};          // path → [{severity, msg, dependentPaths, fixes}]
+let _pendingPatches = {};     // path → [{description, apply: text→text}]
+let _changeLog = [];          // [{icon, title, path, id}]
+let _wpnPathById = {};        // weaponId (lowercase) → .wpn file path
+let _currentModal = null;     // { filePath, activeRisks, allFixes, onProceed }
+let _shipFilePathToHullId = {};// .ship file path → hull ID (for reverse sync)
+
 // ── FILE CATEGORIES ───────────────────────────────────────────────────────────
 // Each category can have `patterns` (tested against filename) and `pathPatterns`
 // (tested against the full path). First match wins; 'other' is the fallback.
@@ -64,6 +72,10 @@ const FILE_CATEGORIES = [
   { id:'wings',       label:'WING FILES',             icon:'✈',
     patterns:[/\.wing$/i],
     desc:'Fighter wing definitions' },
+  { id:'magicbounty', label:'MAGIC BOUNTIES',          icon:'🎯',
+    patterns:[/^magicbounty_data\.json$/i, /^magicbounty_intel\.json$/i],
+    pathPatterns:[/\/MagicBounty\//i, /\/config\/MagicBounty/i],
+    desc:'MagicLib bounty definitions' },
   { id:'faction',     label:'FACTIONS',               icon:'🚩',
     patterns:[/\.faction$/i, /^default_ship_roles\.json$/i, /^default_ranks\.json$/i, /^factions\.csv$/i],
     pathPatterns:[/\/world\/factions\//i],
@@ -108,6 +120,10 @@ const ORPHAN_EXEMPT_NAMES = new Set([
   'customstarts.json','character_backgrounds.csv','excluded_hulls.csv',
   'drop_groups.csv','planet_gen_data.csv','star_gen_data.csv',
   'salvage_entity_gen_data.csv','condition_gen_data.csv',
+  'magicbounty_data.json','magicbounty_intel.json',
+  'sc_skills.csv','sc_aptitudes.csv','scaptitudes.csv','scskills.csv',
+  'printing_whitelist.csv','reverse_engineering_whitelist.csv',
+  'industry_data.csv','market_data.csv',
 ]);
 
 // Path sub-patterns for files loaded by directory scanning in library mods.
@@ -128,6 +144,10 @@ const ORPHAN_EXEMPT_PATH_PATTERNS = [
   /\/data\/campaign\/procgen\//i,
   /\/data\/campaign\/frontiers\//i,
   /\/data\/characters\//i,
+  /\/data\/config\/MagicBounty/i,
+  /\/data\/campaign\/rulecontent\//i,
+  /\/data\/campaign\/rules\//i,
+  /\/data\/scripts\//i,
   /_texture_data\.csv$/i,
   /_lights?_data\.csv$/i,
   /\.version$/i,
@@ -224,6 +244,12 @@ function resetApp() {
   _allOrphanPaths = new Set();
   _byPath = {};
   _modRoot = '';
+  _riskGraph = {};
+  _pendingPatches = {};
+  _changeLog = [];
+  _wpnPathById = {};
+  _currentModal = null;
+  _shipFilePathToHullId = {};
   $('app-upload').style.display = '';
   $('app-results').style.display = 'none';
   $('folder-input').value = '';
@@ -498,8 +524,12 @@ async function startAnalysis(files) {
   }
   _allOrphanPaths = new Set(orphans.map(o => o.path));
 
+  // ── Dependency risk analysis ──────────────────────────────────────────────
+  setProgress(80, 'Analysing file dependencies...');
+  await buildRiskGraph({ allPaths, byPath, ships, skins, variants, shipById, skinById, modRoot });
+
   // ── File inventory ─────────────────────────────────────────────────────────
-  setProgress(85, 'Categorising all files...');
+  setProgress(90, 'Categorising all files...');
   const primaryPathMeta = {};
   for (const s of ships) primaryPathMeta[s.path] = { orphan:false, owners:[{ type:'ship', id:s.hullId }] };
   for (const sk of skins) primaryPathMeta[sk.path] = { orphan:false, owners:[{ type:'skin', id:sk.skinHullId, parentId:sk.baseHullId }] };
@@ -630,7 +660,24 @@ function renderResults(d) {
     orphans.length===0?'All mod files grouped by type':`${formatBytes(orphanBytes)} (${formatPercent(orphanPercent)}) potentially removable`,
     renderFileInventory(allFilesByCat), false);
 
+  // Change-log section — appended last so it appears at the bottom, hidden until patches are queued
+  const clSection = document.createElement('div');
+  clSection.id = 'change-log-section';
+  clSection.className = 'section';
+  clSection.style.cssText = 'display:none;border-color:rgba(74,158,255,.4)';
+  clSection.innerHTML = `
+    <div class="section-header" style="background:rgba(74,158,255,.06)" onclick="toggleSection(this)">
+      <span class="section-icon">📋</span>
+      <span class="section-title">PENDING EXPORT CHANGES</span>
+      <span class="section-badge badge-info change-log-count-badge"></span>
+      <span class="chevron">▲</span>
+    </div>
+    <div class="section-body open change-log-body"></div>`;
+  container.appendChild(clSection);
+  renderChangeLogSection();
+
   scheduleThumbLoad();
+  refreshRiskBadges();
 }
 
 // ── RENDER: Issues ────────────────────────────────────────────────────────────
@@ -657,6 +704,7 @@ function renderShipTree(ships, skins, csvById) {
   const tid = 'ship-tbl';
 
   _shipPathById = {};
+  _shipFilePathToHullId = {};
   for (const s of ships) {
     _shipPathById[s.hullId] = {
       path: s.path,
@@ -665,6 +713,7 @@ function renderShipTree(ships, skins, csvById) {
       skinSpritePaths: s.skins.map(sk => sk.spritePath).filter(Boolean),
       variantPaths: s.variants.map(v => v.path),
     };
+    _shipFilePathToHullId[s.path] = s.hullId;
   }
 
   const orphanSkins = skins.filter(sk => !sk.parentShip);
@@ -692,7 +741,7 @@ function renderShipTree(ships, skins, csvById) {
     }).join('');
 
     return `<tr data-status="${ok?'ok':'error'}" data-name="${searchKey}" class="ship-row">
-      <td><input type="checkbox" class="export-ship-cb" checked data-hull-id="${esc(s.hullId)}" onchange="syncShipFiles(this)" title="Include in export (also syncs .ship and sprite in File Inventory)" style="margin-right:6px;cursor:pointer;vertical-align:middle"><span class="status-dot ${statusDot}"></span><span class="td-tag ${statusTag}">${statusText}</span>
+      <td><input type="checkbox" class="export-ship-cb" checked data-hull-id="${esc(s.hullId)}" onchange="onAnyCheckChange(this)" title="Include ship, skins and variants in export" style="margin-right:6px;cursor:pointer;vertical-align:middle"><span class="status-dot ${statusDot}"></span><span class="td-tag ${statusTag}">${statusText}</span>
         ${s.skins.length?`<span class="td-tag" style="color:#c87eff;border-color:rgba(200,126,255,.3);background:rgba(200,126,255,.06);margin-left:4px">${s.skins.length} skin${s.skins.length>1?'s':''}</span>`:''}
       </td>
       <td>${spriteThumbHtml(s.spritePath)}</td>
@@ -710,7 +759,7 @@ function renderShipTree(ships, skins, csvById) {
     const statusText = skErr ? 'PARSE ERR' : sk.baseHullId ? 'BAD BASE' : 'NO BASE';
     const baseText = skErr ? 'not parsed' : `baseHullId: ${sk.baseHullId || 'missing'}`;
     return `<tr data-status="error" data-name="${esc(sk.skinHullId.toLowerCase())}">
-      <td><input type="checkbox" class="export-skin-cb" checked data-path="${esc(sk.path)}" onchange="syncOrphanSkinFiles(this)" title="Include in export" style="margin-right:6px;cursor:pointer;vertical-align:middle"><span class="status-dot ${skErr?'dot-err':'dot-warn'}"></span><span class="td-tag ${skErr?'tag-missing':'tag-warn'}">${statusText}</span>
+      <td><input type="checkbox" class="export-skin-cb" checked data-path="${esc(sk.path)}" onchange="onAnyCheckChange(this)" title="Include in export" style="margin-right:6px;cursor:pointer;vertical-align:middle"><span class="status-dot ${skErr?'dot-err':'dot-warn'}"></span><span class="td-tag ${skErr?'tag-missing':'tag-warn'}">${statusText}</span>
         <span class="td-tag" style="color:#c87eff;border-color:rgba(200,126,255,.3);background:rgba(200,126,255,.06)">SKIN</span>
       </td>
       <td>${spriteThumbHtml(sk.spritePath, 28)}</td>
@@ -724,8 +773,8 @@ function renderShipTree(ships, skins, csvById) {
   }).join('');
 
   const total = ships.length + skins.length;
-  const limitedRows = limitRows(rows + orphanSkinRows, tid, 15);
-  const initialShown = Math.min(total, 15);
+  const limitedRows = limitRows(rows + orphanSkinRows, tid, 3);
+  const initialShown = Math.min(total, 3);
   return `
     <div class="filter-bar">
       <input class="filter-input" placeholder="Filter by hull ID, name…" oninput="filterTable('${tid}',this.value)" id="${tid}-search">
@@ -735,7 +784,7 @@ function renderShipTree(ships, skins, csvById) {
         <button class="filter-btn" onclick="filterTableStatus('${tid}','error',this)">ISSUES</button>
       </div>
       <button class="btn btn-sm" onclick="toggleCheckboxes('export-ship-cb')" style="margin-left:8px">☑ Toggle All</button>
-      <span class="table-count" id="${tid}-count">${total > 15 ? `${initialShown} shown · ` : ''}${ships.length} ships · ${skins.length} skins</span>
+      <span class="table-count" id="${tid}-count">${total > 3 ? `${initialShown} shown · ` : ''}${ships.length} ships · ${skins.length} skins</span>
     </div>
     <div class="table-wrap"><table id="${tid}">
       <thead><tr><th>EXPORT / STATUS</th><th>SPRITE</th><th>HULL ID</th><th>FILE</th><th>PATH</th><th>CSV NAME / BASE</th><th>LOCATION</th><th>ERROR</th></tr></thead>
@@ -790,8 +839,8 @@ function renderVariantTable(variants) {
   }
   for (const v of unresolved) rows += variantRow(v);
 
-  const limitedRows = limitRows(rows, tid, 15);
-  const initialShown = Math.min(variants.length, 15);
+  const limitedRows = limitRows(rows, tid, 3);
+  const initialShown = Math.min(variants.length, 3);
   return `
     <div class="filter-bar">
       <input class="filter-input" placeholder="Filter variants…" oninput="filterTable('${tid}',this.value)" id="${tid}-search">
@@ -801,7 +850,7 @@ function renderVariantTable(variants) {
         <button class="filter-btn" onclick="filterTableStatus('${tid}','error',this)">ISSUES</button>
       </div>
       <button class="btn btn-sm" onclick="toggleCheckboxes('export-variant-cb')" style="margin-left:8px">☑ Toggle All</button>
-      <span class="table-count" id="${tid}-count">${variants.length > 15 ? `${initialShown} shown · ` : ''}${variants.length} variants</span>
+      <span class="table-count" id="${tid}-count">${variants.length > 3 ? `${initialShown} shown · ` : ''}${variants.length} variants</span>
     </div>
     <div class="table-wrap"><table id="${tid}">
       <thead><tr><th>EXPORT / STATUS</th><th>SPRITE</th><th>VARIANT FILE</th><th>REFERENCES</th><th>REF TYPE</th><th>RESOLVED SHIP</th><th>PATH</th><th>ERROR</th></tr></thead>
@@ -825,7 +874,7 @@ function variantRow(v) {
     : v.refType==='missing' ? '<span style="color:var(--red);font-size:11px">unresolved</span>' : '—';
 
   return `<tr data-status="${ok?'ok':'error'}" data-name="${esc(v.shortName.toLowerCase())} ${esc(v.refId||'')}">
-    <td><input type="checkbox" class="export-variant-cb" checked data-path="${esc(v.path)}" onchange="syncVariantFiles(this)" title="Include in export (also syncs .variant and sprite in File Inventory)" style="margin-right:6px;cursor:pointer;vertical-align:middle"><span class="status-dot ${statusDot}"></span><span class="td-tag ${statusTag}">${statusText}</span></td>
+    <td><input type="checkbox" class="export-variant-cb" checked data-path="${esc(v.path)}" onchange="onAnyCheckChange(this)" title="Include variant in export" style="margin-right:6px;cursor:pointer;vertical-align:middle"><span class="status-dot ${statusDot}"></span><span class="td-tag ${statusTag}">${statusText}</span></td>
     <td>${spriteThumbHtml(v.spritePath, 28)}</td>
     <td style="font-size:12px">${esc(v.shortName)}</td>
     <td class="td-mono" style="font-size:11px">${esc(v.refId||'—')}</td>
@@ -871,18 +920,19 @@ function renderFileInventory(allFilesByCat) {
           const thumbHtml = isImg
             ? `<div class="sprite-cell chip-sprite" data-sprite-path="${esc(f.path)}" onmouseenter="showSpritePreview(this,event)" onmouseleave="hideSpritePreview()"><img class="sprite-thumb" data-path="${esc(f.path)}" width="20" height="20" style="object-fit:contain;image-rendering:pixelated;display:block;cursor:zoom-in"></div>`
             : '';
-          return `<div class="file-chip ${index >= 15 ? 'is-collapsed-entry' : ''}" data-collapse-group="${groupId}" title="${esc(f.path)}">
-            <input type="checkbox" class="${cbClass}" checked data-path="${esc(f.path)}" onchange="onFileCbChange(this)" style="margin-right:4px;cursor:pointer;flex-shrink:0">
+          return `<div class="file-chip ${index >= 3 ? 'is-collapsed-entry' : ''}" data-collapse-group="${groupId}" data-chip-path="${esc(f.path)}" title="${esc(f.path)}">
+            <input type="checkbox" class="${cbClass}" checked data-path="${esc(f.path)}" onchange="onAnyCheckChange(this)" style="margin-right:4px;cursor:pointer;flex-shrink:0">
             ${thumbHtml}
             <span class="chip-ext ${getExtClass(ext)}">.${ext||'?'}</span>
             <span>${esc(f.name)}</span>
             <span class="td-tag badge-muted">${formatBytes(f.size || 0)}</span>
             ${f.orphan ? '<span class="td-tag tag-warn">orphan</span>' : ''}
             ${ownerText ? `<span class="td-tag ${f.orphan?'tag-warn':'tag-ok'}" title="${esc(ownerText)}">${esc(ownerText)}</span>` : ''}
+            <span class="risk-badge td-tag" style="display:none"></span>
           </div>`;
         }).join('')}
       </div>
-      ${files.length > 15 ? showAllControl(groupId, files.length - 15) : ''}
+      ${files.length > 3 ? showAllControl(groupId, files.length - 3) : ''}
     </div>`;
   }
   return html || '<div class="empty">No files found</div>';
@@ -936,6 +986,8 @@ function filterTable(tableId, search) {
   const tbl = $(tableId);
   if (!tbl) return;
   const q = search.toLowerCase();
+  // Auto-expand when user types something
+  if (q && !tbl._expanded) { tbl._expanded = true; }
   let vis = 0;
   for (const tr of tbl.tBodies[0].rows) {
     if (tr.classList.contains('var-group-header')) {
@@ -1005,10 +1057,9 @@ async function exportMod() {
     alert('JSZip library not loaded. Check your internet connection and reload the page.');
     return;
   }
-  const btn = $('export-btn');
-  const origText = btn.textContent;
-  btn.textContent = '⏳ Building ZIP…';
-  btn.disabled = true;
+  const btn = document.getElementById('export-btn') || document.getElementById('header-export-btn');
+  const origText = btn?.textContent;
+  if (btn) { btn.textContent = '⏳ Building ZIP…'; btn.disabled = true; }
 
   try {
     const zip = new JSZip();
@@ -1041,7 +1092,7 @@ async function exportMod() {
     // Determine mod_info.json path
     const modInfoPath = Object.keys(_byPath).find(p => p.endsWith('/mod_info.json'));
 
-    // Add all collected files to the zip
+    // Add all collected files to the zip (applying pending content patches)
     for (const path of exportPaths) {
       if (path === modInfoPath) continue; // handled separately below
       const file = _byPath[path];
@@ -1049,7 +1100,15 @@ async function exportMod() {
       const zipPath = _modRoot && path.startsWith(_modRoot + '/')
         ? path.slice(_modRoot.length + 1)
         : path.replace(/^\//, '');
-      zip.file(zipPath, file);
+      if (_pendingPatches[path]?.length) {
+        try {
+          let text = await readText(file);
+          for (const patch of _pendingPatches[path]) text = patch.apply(text);
+          zip.file(zipPath, text);
+        } catch(e) { zip.file(zipPath, file); }
+      } else {
+        zip.file(zipPath, file);
+      }
     }
 
     // Always include a modified mod_info.json
@@ -1073,47 +1132,163 @@ async function exportMod() {
   } catch (err) {
     alert('Export failed: ' + err.message);
   } finally {
-    btn.textContent = origText;
-    btn.disabled = false;
+    if (btn) { btn.textContent = origText; btn.disabled = false; }
   }
 }
 
-function uncheckOrphanedFiles() {
-  document.querySelectorAll('.export-file-cb').forEach(cb => {
-    if (_allOrphanPaths.has(cb.dataset.path)) {
-      cb.checked = false;
-      setChipDeselected(cb.closest('.file-chip'), true);
+// ── UNIFIED CHECKBOX SYSTEM ───────────────────────────────────────────────────
+// Single entry point for every checkbox change in the app.
+// Determines type, checks risks, shows modal when needed, then applies cascades.
+function onAnyCheckChange(cb) {
+  const checked = cb.checked;
+  const type = cbType(cb);
+
+  if (!checked) {
+    const risks = risksForCb(cb, type);
+    if (risks.length) {
+      // Temporarily restore previous state while modal is open
+      cb.checked = true;
+      visualRestoreCb(cb, type, true);
+      showRiskModal(primaryPathForCb(cb, type), risks, () => applyToggle(cb, type, false));
+      return;
     }
+  }
+  applyToggle(cb, type, checked);
+}
+
+function cbType(cb) {
+  if (cb.classList.contains('export-ship-cb'))    return 'ship';
+  if (cb.classList.contains('export-variant-cb')) return 'variant';
+  if (cb.classList.contains('export-skin-cb'))    return 'skin';
+  return 'file';
+}
+
+function primaryPathForCb(cb, type) {
+  if (type === 'ship') return _shipPathById[cb.dataset.hullId]?.path || '';
+  return cb.dataset.path || '';
+}
+
+function risksForCb(cb, type) {
+  if (type === 'ship') {
+    const entry = _shipPathById[cb.dataset.hullId];
+    if (!entry) return [];
+    // Only check risks stored on the .ship file itself (e.g. faction knownShips, ship roles).
+    // Sprite risks say "removing the sprite will break THIS ship" — irrelevant when the
+    // ship itself is being unchecked (and would produce a circular "also exclude the ship" fix).
+    return getActiveRisksForPath(entry.path);
+  }
+  return getActiveRisksForPath(cb.dataset.path);
+}
+
+function dedupeRisks(risks) {
+  const seen = new Set();
+  return risks.filter(r => { const k = r.severity + r.msg; return seen.has(k) ? false : (seen.add(k), true); });
+}
+
+function visualRestoreCb(cb, type, checked) {
+  if (type === 'file') setChipDeselected(cb.closest('.file-chip'), !checked);
+  else setRowDeselected(cb.closest('tr'), !checked);
+}
+
+function applyToggle(cb, type, checked) {
+  if      (type === 'ship')    applyShipToggle(cb.dataset.hullId, checked, cb);
+  else if (type === 'variant') applyVariantToggle(cb.dataset.path, checked, cb);
+  else if (type === 'skin')    applySkinToggle(cb.dataset.path, checked, cb);
+  else                         applyFileToggle(cb.dataset.path, checked, cb);
+}
+
+// Apply ship toggle: cascades to all related files and variant table rows
+function applyShipToggle(hullId, checked, sourceCb) {
+  const entry = _shipPathById[hullId];
+  if (!entry) return;
+  if (sourceCb) { sourceCb.checked = checked; setRowDeselected(sourceCb.closest('tr'), !checked); }
+
+  // Build the full cascade set for the change log
+  const cascadePaths = [entry.path];
+  if (entry.spritePath) cascadePaths.push(entry.spritePath);
+  entry.skinPaths.forEach(p => cascadePaths.push(p));
+  entry.skinSpritePaths.forEach(p => cascadePaths.push(p));
+  entry.variantPaths.forEach(vPath => {
+    cascadePaths.push(vPath);
+    const vs = _variantSpriteByPath[vPath];
+    if (vs) cascadePaths.push(vs);
   });
-}
 
-function toggleCheckboxes(className) {
-  const boxes = Array.from(document.querySelectorAll('.' + className));
-  const allChecked = boxes.every(cb => cb.checked);
-  boxes.forEach(cb => { cb.checked = !allChecked; });
-}
+  if (!checked) {
+    const shipName = entry.path.split('/').pop();
+    const varCount = entry.variantPaths.length;
+    const skinCount = entry.skinPaths.length;
+    const sub = [varCount && `${varCount} variant${varCount!==1?'s':''}`, skinCount && `${skinCount} skin${skinCount!==1?'s':''}`, entry.spritePath && 'sprite'].filter(Boolean).join(', ');
+    addChangeEntry('☑', `Excluded ship: ${shipName}${sub ? ` (+${sub})` : ''}`, entry.path, { cascade: cascadePaths });
+  } else {
+    _changeLog = _changeLog.filter(e => !cascadePaths.includes(e.path) || e.icon === '✂️');
+    renderChangeLogSection();
+  }
 
-// ── PER-CATEGORY FILE CONTROLS ────────────────────────────────────────────────
-function toggleCategoryFiles(catId) {
-  const cbs = Array.from(document.querySelectorAll(`.export-file-cb-${catId}`));
-  const allChecked = cbs.every(cb => cb.checked);
-  cbs.forEach(cb => {
-    cb.checked = !allChecked;
-    setChipDeselected(cb.closest('.file-chip'), allChecked);
+  syncFileCbByPath(entry.path, checked);
+  if (entry.spritePath) syncFileCbByPath(entry.spritePath, checked);
+  entry.skinPaths.forEach(p => syncFileCbByPath(p, checked));
+  entry.skinSpritePaths.forEach(p => syncFileCbByPath(p, checked));
+  entry.variantPaths.forEach(vPath => {
+    const safe = vPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const vCb = document.querySelector(`.export-variant-cb[data-path="${safe}"]`);
+    if (vCb) { vCb.checked = checked; setRowDeselected(vCb.closest('tr'), !checked); }
+    syncFileCbByPath(vPath, checked);
+    const vs = _variantSpriteByPath[vPath];
+    if (vs) syncFileCbByPath(vs, checked);
   });
+  refreshRiskBadges();
 }
 
-function uncheckCategoryOrphans(catId) {
-  document.querySelectorAll(`.export-file-cb-${catId}`).forEach(cb => {
-    if (_allOrphanPaths.has(cb.dataset.path)) {
-      cb.checked = false;
-      setChipDeselected(cb.closest('.file-chip'), true);
-    }
-  });
+// Apply variant toggle: syncs file chip and sprite
+function applyVariantToggle(path, checked, sourceCb) {
+  if (sourceCb) { sourceCb.checked = checked; setRowDeselected(sourceCb.closest('tr'), !checked); }
+  if (!checked) addChangeEntry('☑', `Excluded variant: ${path.split('/').pop()}`, path);
+  else { _changeLog = _changeLog.filter(e => e.path !== path || e.icon === '✂️'); renderChangeLogSection(); }
+  syncFileCbByPath(path, checked);
+  const sp = _variantSpriteByPath[path];
+  if (sp) syncFileCbByPath(sp, checked);
+  refreshRiskBadges();
 }
 
-function onFileCbChange(cb) {
-  setChipDeselected(cb.closest('.file-chip'), !cb.checked);
+// Apply orphan skin toggle: syncs file chip
+function applySkinToggle(path, checked, sourceCb) {
+  if (sourceCb) { sourceCb.checked = checked; setRowDeselected(sourceCb.closest('tr'), !checked); }
+  if (!checked) addChangeEntry('☑', `Excluded skin: ${path.split('/').pop()}`, path);
+  else { _changeLog = _changeLog.filter(e => e.path !== path || e.icon === '✂️'); renderChangeLogSection(); }
+  syncFileCbByPath(path, checked);
+  refreshRiskBadges();
+}
+
+// Apply file chip toggle: also reverse-syncs ship / variant / skin table rows
+function applyFileToggle(path, checked, sourceCb) {
+  if (sourceCb) { sourceCb.checked = checked; setChipDeselected(sourceCb.closest('.file-chip'), !checked); }
+  if (!checked) addChangeEntry('☑', `Excluded file: ${path.split('/').pop()}`, path);
+  else { _changeLog = _changeLog.filter(e => e.path !== path || e.icon === '✂️'); renderChangeLogSection(); }
+  const safe = path.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  // Reverse sync → ship table row (only for the actual .ship file, not sprites)
+  const hullId = _shipFilePathToHullId[path];
+  if (hullId) {
+    const escapedId = hullId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const sCb = document.querySelector(`.export-ship-cb[data-hull-id="${escapedId}"]`);
+    if (sCb) { sCb.checked = checked; setRowDeselected(sCb.closest('tr'), !checked); }
+  }
+  // Reverse sync → variant table row
+  const vCb = document.querySelector(`.export-variant-cb[data-path="${safe}"]`);
+  if (vCb) { vCb.checked = checked; setRowDeselected(vCb.closest('tr'), !checked); }
+  // Reverse sync → orphan skin table row
+  const skCb = document.querySelector(`.export-skin-cb[data-path="${safe}"]`);
+  if (skCb) { skCb.checked = checked; setRowDeselected(skCb.closest('tr'), !checked); }
+  refreshRiskBadges();
+}
+
+// ── LOW-LEVEL SYNC HELPERS ───────────────────────────────────────────────────
+// Update a file chip checkbox by path without triggering onAnyCheckChange
+function syncFileCbByPath(path, checked) {
+  if (!path) return;
+  const safe = path.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const cb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
+  if (cb) { cb.checked = checked; setChipDeselected(cb.closest('.file-chip'), !checked); }
 }
 
 function setChipDeselected(chip, deselected) {
@@ -1121,63 +1296,40 @@ function setChipDeselected(chip, deselected) {
   chip.classList.toggle('export-deselected', deselected);
 }
 
-// ── SHIP / VARIANT ↔ FILE INVENTORY SYNC ─────────────────────────────────────
-function syncShipFiles(cb) {
-  const entry = _shipPathById[cb.dataset.hullId];
-  if (!entry) return;
-  const checked = cb.checked;
-
-  // Sync the .ship file and sprite in the File Inventory
-  syncFileCbByPath(entry.path, checked);
-  if (entry.spritePath) syncFileCbByPath(entry.spritePath, checked);
-
-  // Sync every attached skin's .skin file and sprite in the File Inventory
-  entry.skinPaths.forEach(p => syncFileCbByPath(p, checked));
-  entry.skinSpritePaths.forEach(p => syncFileCbByPath(p, checked));
-
-  // Sync all variants that belong to this ship
-  entry.variantPaths.forEach(varPath => {
-    const safe = varPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const varCb = document.querySelector(`.export-variant-cb[data-path="${safe}"]`);
-    if (varCb) {
-      varCb.checked = checked;
-      setRowDeselected(varCb.closest('tr'), !checked);
-    }
-    syncFileCbByPath(varPath, checked);
-    const varSprite = _variantSpriteByPath[varPath];
-    if (varSprite) syncFileCbByPath(varSprite, checked);
-  });
-
-  setRowDeselected(cb.closest('tr'), !checked);
-}
-
-function syncOrphanSkinFiles(cb) {
-  syncFileCbByPath(cb.dataset.path, cb.checked);
-  setRowDeselected(cb.closest('tr'), !cb.checked);
-}
-
-function syncVariantFiles(cb) {
-  const varPath = cb.dataset.path;
-  const checked = cb.checked;
-  syncFileCbByPath(varPath, checked);
-  const spritePath = _variantSpriteByPath[varPath];
-  if (spritePath) syncFileCbByPath(spritePath, checked);
-  setRowDeselected(cb.closest('tr'), !checked);
-}
-
-function syncFileCbByPath(path, checked) {
-  if (!path) return;
-  const safe = path.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  const fileCb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
-  if (fileCb) {
-    fileCb.checked = checked;
-    setChipDeselected(fileCb.closest('.file-chip'), !checked);
-  }
-}
-
 function setRowDeselected(row, deselected) {
   if (!row) return;
   row.classList.toggle('export-deselected', deselected);
+}
+
+// ── BULK OPERATIONS ───────────────────────────────────────────────────────────
+// Bulk toggles bypass the risk modal (mass operation) but still cascade correctly.
+function uncheckOrphanedFiles() {
+  let skipped = 0;
+  document.querySelectorAll('.export-file-cb').forEach(cb => {
+    if (!_allOrphanPaths.has(cb.dataset.path)) return;
+    if (getActiveRisksForPath(cb.dataset.path).some(r => r.severity === 'unsafe')) { skipped++; return; }
+    applyFileToggle(cb.dataset.path, false, cb);
+  });
+  if (skipped > 0) showNotification(`Skipped ${skipped} orphan${skipped !== 1 ? 's' : ''} flagged UNSAFE to remove.`);
+}
+
+function toggleCheckboxes(className) {
+  const boxes = Array.from(document.querySelectorAll('.' + className));
+  const newState = !boxes.every(cb => cb.checked);
+  boxes.forEach(cb => applyToggle(cb, cbType(cb), newState));
+}
+
+// ── PER-CATEGORY FILE CONTROLS ────────────────────────────────────────────────
+function toggleCategoryFiles(catId) {
+  const cbs = Array.from(document.querySelectorAll(`.export-file-cb-${catId}`));
+  const newState = !cbs.every(cb => cb.checked);
+  cbs.forEach(cb => applyFileToggle(cb.dataset.path, newState, cb));
+}
+
+function uncheckCategoryOrphans(catId) {
+  document.querySelectorAll(`.export-file-cb-${catId}`).forEach(cb => {
+    if (_allOrphanPaths.has(cb.dataset.path)) applyFileToggle(cb.dataset.path, false, cb);
+  });
 }
 
 // ── SPRITE PREVIEW ────────────────────────────────────────────────────────────
@@ -1236,6 +1388,537 @@ function scheduleThumbLoad() {
   }, 80);
 }
 
+// ── RISK ANALYSIS ─────────────────────────────────────────────────────────────
+async function buildRiskGraph({ allPaths, byPath, ships, skins, variants, shipById, skinById, modRoot }) {
+  _riskGraph = {};
+  _wpnPathById = {};
+
+  const addRisk = (path, risk) => {
+    if (!_riskGraph[path]) _riskGraph[path] = [];
+    _riskGraph[path].push(risk);
+  };
+
+  const resolveSprite = (spriteName) => {
+    if (!spriteName) return null;
+    const rel = spriteName.replace(/^\//, '');
+    if (byPath[modRoot + '/' + rel]) return modRoot + '/' + rel;
+    if (byPath['/' + rel]) return '/' + rel;
+    return null;
+  };
+
+  // ── Parse .wpn files ───────────────────────────────────────────────────────
+  const wpnParsed = {};
+  for (const p of allPaths.filter(p => /\.wpn$/i.test(p))) {
+    try {
+      const data = parseStarsectorJson(await readText(byPath[p]));
+      wpnParsed[p] = data;
+      const base = p.split('/').pop().replace(/\.wpn$/i, '').toLowerCase();
+      _wpnPathById[base] = p;
+      if (data.id) _wpnPathById[data.id.toLowerCase()] = p;
+    } catch(e) {}
+  }
+
+  // ── Weapon sprite & projectile deps ───────────────────────────────────────
+  for (const [wPath, wData] of Object.entries(wpnParsed)) {
+    const wName = wPath.split('/').pop().replace(/\.wpn$/i, '');
+    for (const key of ['turretSprite','hardpointSprite','turretGunSprite','hardpointGunSprite','underSprite']) {
+      const sp = resolveSprite(wData[key]);
+      if (!sp) continue;
+      addRisk(sp, {
+        severity: 'unsafe',
+        msg: `Weapon sprite for "${wName}" — visual corruption in game`,
+        dependentPaths: [wPath],
+        fixes: [{ label: `Also exclude ${wPath.split('/').pop()}`, type: 'cascade_uncheck', paths: [wPath] }]
+      });
+    }
+    if (wData.projectileSpecId) {
+      const projBase = wData.projectileSpecId.toLowerCase();
+      const projPath = allPaths.find(pp => /\.proj$/i.test(pp) && pp.split('/').pop().replace(/\.proj$/i,'').toLowerCase() === projBase);
+      if (projPath) {
+        addRisk(projPath, {
+          severity: 'unsafe',
+          msg: `Projectile spec for weapon "${wName}" — weapon misfires or crashes`,
+          dependentPaths: [wPath],
+          fixes: [{ label: `Also exclude ${wPath.split('/').pop()}`, type: 'cascade_uncheck', paths: [wPath] }]
+        });
+      }
+    }
+  }
+
+  // ── Ship sprite & built-in weapon deps ────────────────────────────────────
+  for (const s of ships) {
+    if (s.spritePath) {
+      addRisk(s.spritePath, {
+        severity: 'unsafe',
+        msg: `Ship sprite for "${s.hullId}" — white-box render in game`,
+        dependentPaths: [s.path],
+        fixes: [{ label: `Also exclude ${s.shortName} and variants`, type: 'cascade_uncheck',
+          paths: [s.path, ...(s.variants||[]).map(v=>v.path), ...(s.skins||[]).map(sk=>sk.path)] }]
+      });
+    }
+    if (s.data?.builtInWeapons && typeof s.data.builtInWeapons === 'object') {
+      for (const [slot, weaponId] of Object.entries(s.data.builtInWeapons)) {
+        if (!weaponId || typeof weaponId !== 'string') continue;
+        const wpnPath = _wpnPathById[weaponId.toLowerCase()];
+        if (!wpnPath) continue;
+        const cap = { slot, weaponId, sPath: s.path, sName: s.shortName };
+        addRisk(wpnPath, {
+          severity: 'unsafe',
+          msg: `Built-in weapon in "${s.hullId}" (slot ${slot}) — ship will have broken slot`,
+          dependentPaths: [s.path],
+          fixes: [
+            { label: `Also exclude ${s.shortName}`, type: 'cascade_uncheck',
+              paths: [s.path, ...(s.variants||[]).map(v=>v.path), ...(s.skins||[]).map(sk=>sk.path)] },
+            { label: `Patch ${s.shortName} — remove built-in slot ${slot}`,
+              type: 'patch_file', targetPath: cap.sPath,
+              description: `Remove built-in weapon "${cap.weaponId}" (slot ${cap.slot}) from ${cap.sName}`,
+              apply: (text) => { try { const o=parseStarsectorJson(text); if(o.builtInWeapons){delete o.builtInWeapons[cap.slot]; if(!Object.keys(o.builtInWeapons).length) delete o.builtInWeapons;} return JSON.stringify(o,null,2); } catch(e){return text;} }
+            }
+          ]
+        });
+      }
+    }
+  }
+
+  // ── Variant weapon slot deps ──────────────────────────────────────────────
+  for (const v of variants) {
+    if (!v.data?.weaponGroups) continue;
+    for (let gi = 0; gi < v.data.weaponGroups.length; gi++) {
+      const group = v.data.weaponGroups[gi];
+      if (!group?.weapons) continue;
+      for (const [slot, weaponId] of Object.entries(group.weapons)) {
+        if (!weaponId || typeof weaponId !== 'string') continue;
+        const wpnPath = _wpnPathById[weaponId.toLowerCase()];
+        if (!wpnPath) continue;
+        const cap = { gi, slot, weaponId, vPath: v.path, vName: v.shortName };
+        addRisk(wpnPath, {
+          severity: 'warn',
+          msg: `Assigned in "${v.shortName}" (group ${gi+1}, slot ${slot}) — slot becomes empty`,
+          dependentPaths: [v.path],
+          fixes: [
+            { label: `Also exclude ${v.shortName}`, type: 'cascade_uncheck', paths: [v.path] },
+            { label: `Patch ${v.shortName} — clear slot ${slot}`,
+              type: 'patch_file', targetPath: cap.vPath,
+              description: `Remove "${cap.weaponId}" from slot ${cap.slot} in ${cap.vName}`,
+              apply: (text) => { try { const o=parseStarsectorJson(text); if(o.weaponGroups?.[cap.gi]?.weapons) delete o.weaponGroups[cap.gi].weapons[cap.slot]; return JSON.stringify(o,null,2); } catch(e){return text;} }
+            }
+          ]
+        });
+      }
+    }
+  }
+
+  // ── Faction file deps ─────────────────────────────────────────────────────
+  const factionPaths = allPaths.filter(p => /\.faction$/i.test(p) || /\/world\/factions\/.*\.json$/i.test(p));
+  for (const fp of factionPaths) {
+    let fData; try { fData = parseStarsectorJson(await readText(byPath[fp])); } catch(e) { continue; }
+    const fname = fp.split('/').pop();
+
+    // knownShips
+    const ks = fData.knownShips;
+    if (ks && typeof ks === 'object') {
+      const hullIds = Array.isArray(ks) ? ks : Object.keys(ks);
+      for (const hullId of hullIds) {
+        const ship = shipById[hullId] || shipById[hullId.toLowerCase()];
+        if (!ship) continue;
+        const cap = { hullId, fp, fname };
+        addRisk(ship.path, {
+          severity: 'warn',
+          msg: `Hull "${hullId}" in ${fname} knownShips — faction loses this ship from fleet/market`,
+          dependentPaths: [fp],
+          fixes: [{ label: `Patch ${fname} — remove "${hullId}" from knownShips`,
+            type: 'patch_file', targetPath: fp,
+            description: `Remove hull "${cap.hullId}" from knownShips in ${cap.fname}`,
+            apply: (text) => { try { const o=parseStarsectorJson(text); if(Array.isArray(o.knownShips)) o.knownShips=o.knownShips.filter(id=>id!==cap.hullId); else if(o.knownShips) delete o.knownShips[cap.hullId]; return JSON.stringify(o,null,2); } catch(e){return text;} }
+          }]
+        });
+      }
+    }
+
+    // knownWeapons
+    if (Array.isArray(fData.knownWeapons)) {
+      for (const weaponId of fData.knownWeapons) {
+        const wpnPath = _wpnPathById[weaponId?.toLowerCase?.()];
+        if (!wpnPath) continue;
+        const cap = { weaponId, fp, fname };
+        addRisk(wpnPath, {
+          severity: 'warn',
+          msg: `Weapon "${weaponId}" in ${fname} knownWeapons — faction won't equip ships with it`,
+          dependentPaths: [fp],
+          fixes: [{ label: `Patch ${fname} — remove "${weaponId}" from knownWeapons`,
+            type: 'patch_file', targetPath: fp,
+            description: `Remove weapon "${cap.weaponId}" from knownWeapons in ${cap.fname}`,
+            apply: (text) => { try { const o=parseStarsectorJson(text); if(Array.isArray(o.knownWeapons)) o.knownWeapons=o.knownWeapons.filter(id=>id!==cap.weaponId); return JSON.stringify(o,null,2); } catch(e){return text;} }
+          }]
+        });
+      }
+    }
+
+    // knownFighters
+    if (Array.isArray(fData.knownFighters)) {
+      for (const wingId of fData.knownFighters) {
+        const wingPath = allPaths.find(p => /\.wing$/i.test(p) && p.split('/').pop().replace(/\.wing$/i,'').toLowerCase() === wingId?.toLowerCase?.());
+        if (!wingPath) continue;
+        const cap = { wingId, fp, fname };
+        addRisk(wingPath, {
+          severity: 'warn',
+          msg: `Fighter "${wingId}" in ${fname} knownFighters — faction won't field this wing`,
+          dependentPaths: [fp],
+          fixes: [{ label: `Patch ${fname} — remove "${wingId}" from knownFighters`,
+            type: 'patch_file', targetPath: fp,
+            description: `Remove fighter "${cap.wingId}" from knownFighters in ${cap.fname}`,
+            apply: (text) => { try { const o=parseStarsectorJson(text); if(Array.isArray(o.knownFighters)) o.knownFighters=o.knownFighters.filter(id=>id!==cap.wingId); return JSON.stringify(o,null,2); } catch(e){return text;} }
+          }]
+        });
+      }
+    }
+
+    // portraits
+    const collectPortraits = (portraits) => {
+      const out = [];
+      if (!portraits) return out;
+      if (Array.isArray(portraits)) out.push(...portraits.filter(x => typeof x === 'string'));
+      else if (typeof portraits === 'object') {
+        for (const v of Object.values(portraits)) {
+          if (Array.isArray(v)) out.push(...v.filter(x => typeof x === 'string'));
+          else if (typeof v === 'string') out.push(v);
+        }
+      }
+      return out;
+    };
+    for (const ref of collectPortraits(fData.portraits)) {
+      const pPath = resolveSprite(ref);
+      if (!pPath) continue;
+      const cap = { ref, fp, fname };
+      addRisk(pPath, {
+        severity: 'warn',
+        msg: `Portrait "${ref}" in ${fname} — NPC will show missing portrait`,
+        dependentPaths: [fp],
+        fixes: [{ label: `Patch ${fname} — remove portrait entry`,
+          type: 'patch_file', targetPath: fp,
+          description: `Remove portrait "${cap.ref}" from ${cap.fname}`,
+          apply: (text) => { try { const o=parseStarsectorJson(text); if(o.portraits){ if(Array.isArray(o.portraits)) o.portraits=o.portraits.filter(p=>p!==cap.ref); else for(const k of Object.keys(o.portraits)) if(Array.isArray(o.portraits[k])) o.portraits[k]=o.portraits[k].filter(p=>p!==cap.ref); } return JSON.stringify(o,null,2); } catch(e){return text;} }
+        }]
+      });
+    }
+  }
+
+  // ── default_ship_roles.json ───────────────────────────────────────────────
+  const rolesPath = allPaths.find(p => /default_ship_roles\.json$/i.test(p));
+  if (rolesPath) {
+    let rolesData; try { rolesData = parseStarsectorJson(await readText(byPath[rolesPath])); } catch(e) {}
+    if (rolesData) {
+      const rname = rolesPath.split('/').pop();
+      for (const [role, hullArr] of Object.entries(rolesData)) {
+        if (!Array.isArray(hullArr)) continue;
+        for (const hullId of hullArr) {
+          const ship = shipById[hullId] || shipById[hullId.toLowerCase()];
+          if (!ship) continue;
+          const cap = { role, hullId, rolesPath, rname };
+          addRisk(ship.path, {
+            severity: 'warn',
+            msg: `Hull "${hullId}" in ${rname} role "${role}" — faction AI ignores this role assignment`,
+            dependentPaths: [rolesPath],
+            fixes: [{ label: `Patch ${rname} — remove "${hullId}" from "${role}"`,
+              type: 'patch_file', targetPath: rolesPath,
+              description: `Remove "${cap.hullId}" from role "${cap.role}" in ${cap.rname}`,
+              apply: (text) => { try { const o=parseStarsectorJson(text); if(Array.isArray(o[cap.role])) o[cap.role]=o[cap.role].filter(id=>id!==cap.hullId); return JSON.stringify(o,null,2); } catch(e){return text;} }
+            }]
+          });
+        }
+      }
+    }
+  }
+
+  // ── MagicBounty JSON ─────────────────────────────────────────────────────
+  const bountyPath = allPaths.find(p => /MagicBounty_data\.json$/i.test(p));
+  if (bountyPath) {
+    let bountyData; try { bountyData = parseStarsectorJson(await readText(byPath[bountyPath])); } catch(e) { console.warn('[bounty] parse failed:', e.message); }
+    console.log('[bounty] parsed entries:', bountyData ? Object.keys(bountyData).length : 'null');
+    if (bountyData) {
+      const bname = bountyPath.split('/').pop();
+      for (const [bountyId, bounty] of Object.entries(bountyData)) {
+        if (typeof bounty !== 'object') continue;
+        const variantRefs = [
+          ...(Array.isArray(bounty.fleet_preset_ships) ? bounty.fleet_preset_ships : []),
+          ...(Array.isArray(bounty.fleet_preset_ships_and_escorts) ? bounty.fleet_preset_ships_and_escorts : []),
+          bounty.fleet_flagship_variant,
+          bounty.target_variant,
+          bounty.job_fleet_flagship,
+        ].filter(Boolean);
+        const cap = { bountyId, bountyPath, bname };
+        const bountyFix = {
+          label: `Patch ${bname} — remove bounty "${bountyId}"`,
+          type: 'patch_file', targetPath: bountyPath,
+          description: `Remove bounty entry "${cap.bountyId}" from ${cap.bname}`,
+          apply: (text) => { try { const o=parseStarsectorJson(text); delete o[cap.bountyId]; return JSON.stringify(o,null,2); } catch(e){return text;} }
+        };
+        for (const variantId of variantRefs) {
+          const varPath = allPaths.find(p => /\.variant$/i.test(p) && p.split('/').pop().replace(/\.variant$/i,'').toLowerCase() === variantId.toLowerCase());
+          if (!varPath) continue;
+          addRisk(varPath, {
+            severity: 'unsafe',
+            msg: `Variant "${variantId}" used in bounty "${bountyId}" — bounty will crash on activation`,
+            dependentPaths: [bountyPath],
+            fixes: [{ label: `Also exclude ${bname}`, type: 'cascade_uncheck', paths: [bountyPath] }, bountyFix]
+          });
+          const parentVariant = variants.find(v => v.path === varPath);
+          const parentShip = parentVariant?.resolvedShip;
+          if (parentShip) {
+            addRisk(parentShip.path, {
+              severity: 'unsafe',
+              msg: `Variant "${variantId}" (of this ship) used in bounty "${bountyId}" — bounty will crash`,
+              dependentPaths: [bountyPath],
+              fixes: [{ label: `Also exclude ${bname}`, type: 'cascade_uncheck', paths: [bountyPath] }, bountyFix]
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // ── Java source scanning ──────────────────────────────────────────────────
+  const javaPaths = allPaths.filter(p => /\.java$/i.test(p));
+  if (javaPaths.length) {
+    const knownHullIds = Object.keys(shipById);
+    const knownVariantIds = variants.map(v => v.data?.variantId || v.shortName.replace(/\.variant$/i,'')).filter(Boolean);
+    for (const jp of javaPaths) {
+      let jText; try { jText = await readText(byPath[jp]); } catch(e) { continue; }
+      const jname = jp.split('/').pop();
+      for (const hullId of knownHullIds) {
+        if (!hullId || !jText.includes(`"${hullId}"`)) continue;
+        addRisk(shipById[hullId].path, {
+          severity: 'warn',
+          msg: `Hull ID "${hullId}" is a string literal in ${jname} — script may malfunction (no auto-fix)`,
+          dependentPaths: [jp],
+          fixes: []
+        });
+      }
+      for (const variantId of knownVariantIds) {
+        if (!variantId || !jText.includes(`"${variantId}"`)) continue;
+        const varPath = allPaths.find(p => /\.variant$/i.test(p) && p.split('/').pop().replace(/\.variant$/i,'') === variantId);
+        if (!varPath) continue;
+        addRisk(varPath, {
+          severity: 'warn',
+          msg: `Variant ID "${variantId}" is a string literal in ${jname} — script may malfunction (no auto-fix)`,
+          dependentPaths: [jp],
+          fixes: []
+        });
+      }
+    }
+  }
+
+}
+
+function getActiveRisksForPath(filePath) {
+  const risks = _riskGraph[filePath];
+  if (!risks?.length) return [];
+  return risks.filter(r => r.dependentPaths.some(dp => isPathChecked(dp)));
+}
+
+function isPathChecked(filePath) {
+  if (!filePath) return false;
+  const safe = filePath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const cb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
+  return cb ? cb.checked : true;
+}
+
+function refreshRiskBadges() {
+  document.querySelectorAll('.file-chip[data-chip-path]').forEach(chip => {
+    const badge = chip.querySelector('.risk-badge');
+    if (!badge) return;
+    const path = chip.dataset.chipPath;
+    const activeRisks = getActiveRisksForPath(path);
+    if (!activeRisks.length) { badge.style.display = 'none'; badge.textContent = ''; return; }
+    const sev = activeRisks.some(r => r.severity === 'unsafe') ? 'unsafe' : 'warn';
+    badge.style.display = '';
+    badge.className = `td-tag risk-badge risk-${sev}`;
+    badge.textContent = sev.toUpperCase();
+  });
+}
+
+// ── RISK MODAL ────────────────────────────────────────────────────────────────
+function showRiskModal(filePath, activeRisks, onProceed) {
+  document.getElementById('risk-modal')?.remove();
+  const allFixes = {};
+  let fixIdx = 0;
+  for (const r of activeRisks) {
+    for (const fix of r.fixes) { allFixes[fixIdx] = fix; fixIdx++; }
+  }
+  _currentModal = { filePath, activeRisks, allFixes, onProceed };
+  const fname = filePath.split('/').pop();
+  const maxSev = activeRisks.some(r => r.severity === 'unsafe') ? 'unsafe' : 'warn';
+  const sevColor = maxSev === 'unsafe' ? 'var(--red)' : 'var(--amber)';
+  const fixRows = Object.entries(allFixes).map(([i, fix]) => `
+    <label class="risk-fix-row">
+      <input type="checkbox" class="risk-fix-cb" data-fix-index="${i}" checked style="cursor:pointer;flex-shrink:0">
+      <span style="flex:1">${esc(fix.label)}</span>
+      <span class="risk-fix-type">${fix.type === 'patch_file' ? '✏ patches file' : '☑ unchecks'}</span>
+    </label>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'risk-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `<div class="risk-modal-inner">
+    <div class="risk-modal-head">
+      <span style="font-size:18px">${maxSev==='unsafe'?'🔴':'🟡'}</span>
+      <span style="font-weight:700;color:${sevColor};font-family:var(--head);letter-spacing:1px;text-transform:uppercase">${maxSev==='unsafe'?'Unsafe Removal':'Removal Warning'}</span>
+    </div>
+    <div style="padding:4px 20px 10px;color:var(--text2);font-size:13px">
+      Excluding <code style="color:var(--text);background:var(--bg3);padding:1px 5px;border-radius:3px">${esc(fname)}</code> may break your mod:
+    </div>
+    <div class="risk-modal-reasons">
+      ${activeRisks.map(r=>`<div class="risk-reason risk-reason-${r.severity}"><span class="risk-sev">${r.severity.toUpperCase()}</span><span>${esc(r.msg)}</span></div>`).join('')}
+    </div>
+    ${fixRows ? `<div class="risk-modal-fixes"><div class="risk-fixes-label">Available fixes (applied to file content in the exported ZIP)</div>${fixRows}</div>` : ''}
+    <div class="risk-modal-footer">
+      <button class="btn" onclick="modalCancel()" style="background:var(--bg3)">Cancel (keep file)</button>
+      <button class="btn" onclick="modalProceedNoFix()" style="color:var(--text2);border-color:var(--border2)">Proceed, no fixes</button>
+      <button class="btn" style="color:${sevColor};border-color:${sevColor}" onclick="modalApplyAndProceed()">${fixRows?'Apply selected &amp; proceed':'Proceed anyway'}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function modalCancel() {
+  if (_currentModal) {
+    const safe = _currentModal.filePath.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+    const cb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
+    if (cb) { cb.checked = true; setChipDeselected(cb.closest('.file-chip'), false); }
+  }
+  _currentModal = null;
+  document.getElementById('risk-modal')?.remove();
+}
+
+function modalProceedNoFix() {
+  const proceed = _currentModal?.onProceed;
+  _currentModal = null;
+  document.getElementById('risk-modal')?.remove();
+  proceed?.();
+  refreshRiskBadges();
+}
+
+function modalApplyAndProceed() {
+  if (!_currentModal) { document.getElementById('risk-modal')?.remove(); return; }
+  const { allFixes, onProceed } = _currentModal;
+  document.querySelectorAll('.risk-fix-cb:checked').forEach(cb => {
+    const fix = allFixes[parseInt(cb.dataset.fixIndex)];
+    if (!fix) return;
+    if (fix.type === 'cascade_uncheck') {
+      for (const p of fix.paths) {
+        const safe = p.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+        const fileCb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
+        if (fileCb) applyFileToggle(p, false, fileCb);
+      }
+    } else if (fix.type === 'patch_file') {
+      addPatch(fix.targetPath, fix.description, fix.apply);
+    }
+  });
+  _currentModal = null;
+  document.getElementById('risk-modal')?.remove();
+  onProceed?.();
+  refreshRiskBadges();
+}
+
+// ── PATCH & CHANGE LOG ────────────────────────────────────────────────────────
+function addChangeEntry(icon, title, path, meta = {}) {
+  if (_changeLog.some(e => e.title === title && e.path === path)) return;
+  const id = Date.now() + Math.random();
+  _changeLog.push({ icon, title, path, id, ...meta });
+  renderChangeLogSection();
+}
+
+function addPatch(path, description, applyFn) {
+  if (!_pendingPatches[path]) _pendingPatches[path] = [];
+  if (_pendingPatches[path].some(p => p.description === description)) return;
+  _pendingPatches[path].push({ description, apply: applyFn });
+  addChangeEntry('✂️', description, path);
+}
+
+function undoChangeEntry(id) {
+  const entry = _changeLog.find(e => e.id === id);
+  if (!entry) return;
+  _changeLog = _changeLog.filter(e => e.id !== id);
+  if (entry.icon === '✂️') {
+    // Undo patch: remove from pendingPatches
+    if (_pendingPatches[entry.path]) {
+      _pendingPatches[entry.path] = _pendingPatches[entry.path].filter(p => p.description !== entry.title);
+      if (!_pendingPatches[entry.path].length) delete _pendingPatches[entry.path];
+    }
+  } else {
+    // Undo exclusion: re-check via the appropriate toggle
+    if (entry.cascade) {
+      // Ship-level cascade entry — re-check via ship toggle
+      const hullId = _shipFilePathToHullId[entry.path];
+      if (hullId) {
+        const escapedId = hullId.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+        const sCb = document.querySelector(`.export-ship-cb[data-hull-id="${escapedId}"]`);
+        if (sCb) applyShipToggle(hullId, true, sCb);
+      }
+    } else {
+      const safe = entry.path.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+      const cb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
+      if (cb) applyFileToggle(entry.path, true, cb);
+    }
+  }
+  renderChangeLogSection();
+}
+
+function clearAllPatches() {
+  _pendingPatches = {};
+  _changeLog = [];
+  renderChangeLogSection();
+}
+
+function renderChangeLogSection() {
+  const el = document.getElementById('change-log-section');
+  if (!el) return;
+  const badge = el.querySelector('.change-log-count-badge');
+  const headerBtn = document.getElementById('header-export-btn');
+  if (!_changeLog.length) {
+    el.style.display = 'none';
+    if (badge) badge.textContent = '';
+    if (headerBtn) headerBtn.style.display = '';
+    return;
+  }
+  el.style.display = 'block';
+  if (headerBtn) headerBtn.style.display = 'none';
+  const patches = _changeLog.filter(e => e.icon === '✂️');
+  const exclusions = _changeLog.filter(e => e.icon !== '✂️');
+  if (badge) badge.textContent = `${exclusions.length} excluded · ${patches.length} patched`;
+  const body = el.querySelector('.change-log-body');
+  if (!body) return;
+  const renderEntries = (entries) => entries.map(e => {
+    const sub = e.cascade?.length > 1
+      ? `<div class="change-entry-cascade">${e.cascade.slice(1).map(p=>`<span class="change-entry-sub">${esc(p.split('/').pop())}</span>`).join('')}</div>`
+      : '';
+    return `<div class="change-entry">
+      <span class="change-entry-icon">${e.icon}</span>
+      <div class="change-entry-detail">
+        <div class="change-entry-title">${esc(e.title)}</div>
+        <div class="change-entry-path">${esc(e.path)}</div>
+        ${sub}
+      </div>
+      <button class="btn btn-sm" onclick="undoChangeEntry(${e.id})">↩ Undo</button>
+    </div>`;
+  }).join('');
+  body.innerHTML = `<div class="change-log-wrap">
+    ${exclusions.length ? `<div class="change-log-meta"><strong>${exclusions.length} file${exclusions.length!==1?'s':''} excluded from export</strong></div>${renderEntries(exclusions)}` : ''}
+    ${patches.length ? `<div class="change-log-meta" style="margin-top:${exclusions.length?'12px':'0'}"><strong>${patches.length} file content patch${patches.length!==1?'es':''}</strong> applied in the exported ZIP — originals untouched</div>${renderEntries(patches)}` : ''}
+    <div style="padding:12px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-export" onclick="exportMod()" id="export-btn" title="Export selected files as a ZIP">⬇ Export Mod ZIP</button>
+      <button class="btn btn-sm" onclick="clearAllPatches()" style="color:var(--red);border-color:rgba(224,85,85,.4)">✕ Clear All Changes</button>
+    </div>
+  </div>`;
+}
+
+function showNotification(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--amber);border-radius:6px;padding:12px 18px;color:var(--amber);font-size:13px;z-index:9998;box-shadow:0 4px 24px rgba(0,0,0,.7);max-width:360px;font-family:var(--mono)';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function setProgress(pct, msg) {
   $('progress-bar').style.width = pct+'%';
@@ -1260,7 +1943,12 @@ function formatBytes(bytes) {
 }
 
 function parseStarsectorJson(text) {
-  return JSON.parse(stripTrailingJsonCommas(stripJsonComments(String(text || '').replace(/^\uFEFF/, ''))));
+  const cleaned = stripTrailingJsonCommas(stripJsonComments(String(text || '').replace(/^\uFEFF/, '')));
+  // Starsector JSON allows Python-style True/False/None outside of strings
+  const normalized = cleaned.replace(/(?<!["\w])True(?!["\w])/g, 'true')
+                             .replace(/(?<!["\w])False(?!["\w])/g, 'false')
+                             .replace(/(?<!["\w])None(?!["\w])/g, 'null');
+  return JSON.parse(normalized);
 }
 
 function stripJsonComments(text) {
@@ -1275,7 +1963,7 @@ function stripJsonComments(text) {
       continue;
     }
     if (c === '"' || c === "'") { inStr = true; quote = c; out += c; continue; }
-    if (c === '/' && n === '/') {
+    if ((c === '/' && n === '/') || c === '#') {
       while (i < text.length && !/\r|\n/.test(text[i])) i++;
       out += text[i] || '';
       continue;
@@ -1306,7 +1994,7 @@ function stripTrailingJsonCommas(text) {
     if (c === ',') {
       let j = i + 1;
       while (j < text.length && /\s/.test(text[j])) j++;
-      if (text[j] === '}' || text[j] === ']') continue;
+      if (j >= text.length || text[j] === '}' || text[j] === ']') continue;
     }
     out += c;
   }
