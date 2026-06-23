@@ -519,7 +519,13 @@ function renderShipTree(ships, skins, csvById) {
 
   _shipPathById = {};
   for (const s of ships) {
-    _shipPathById[s.hullId] = { path: s.path, skinPaths: s.skins.map(sk => sk.path), spritePath: s.spritePath || null };
+    _shipPathById[s.hullId] = {
+      path: s.path,
+      spritePath: s.spritePath || null,
+      skinPaths: s.skins.map(sk => sk.path),
+      skinSpritePaths: s.skins.map(sk => sk.spritePath).filter(Boolean),
+      variantPaths: s.variants.map(v => v.path),
+    };
   }
 
   const orphanSkins = skins.filter(sk => !sk.parentShip);
@@ -631,12 +637,14 @@ function renderVariantTable(variants) {
     const group = byShip[key];
     const s = group.ship;
     rows += `<tr class="var-group-header" style="background:var(--bg3)">
-      <td colspan="8" style="padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0">
-        ${spriteThumbHtml(s.spritePath, 24)}
-        <span class="td-tag tag-ship" style="margin-left:6px">SHIP</span>
-        <span style="color:var(--text);margin-left:6px">${esc(s.hullId)}</span>
-        <span style="color:var(--text3);margin-left:6px">${esc(s.shortName)}</span>
-        <span style="color:var(--text3);margin-left:auto;float:right">${group.variants.length} variant${group.variants.length>1?'s':''}</span>
+      <td colspan="8" style="padding:0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--text2)">
+          ${spriteThumbHtml(s.spritePath, 24)}
+          <span class="td-tag tag-ship">SHIP</span>
+          <span style="color:var(--text)">${esc(s.hullId)}</span>
+          <span style="color:var(--text3)">${esc(s.shortName)}</span>
+          <span style="color:var(--text3);margin-left:auto">${group.variants.length} variant${group.variants.length>1?'s':''}</span>
+        </div>
       </td>
     </tr>`;
     for (const v of group.variants) rows += variantRow(v);
@@ -904,10 +912,8 @@ async function exportMod() {
     if (modInfoPath && _byPath[modInfoPath]) {
       let modInfo;
       try { modInfo = parseStarsectorJson(await readText(_byPath[modInfoPath])); } catch(e) { modInfo = {}; }
-      const origName = modInfo.name || 'Unknown Mod';
-      const origId   = modInfo.id   || 'unknown';
-      modInfo.name = origName + ' [SMT]';
-      modInfo.id   = origId + '_smt';
+      modInfo.name = (modInfo.name || 'Unknown Mod') + ' [SMT]';
+      modInfo.version = (modInfo.version ? modInfo.version + '-' : '') + 'SMT';
       zip.file('mod_info.json', JSON.stringify(modInfo, null, 2));
     }
 
@@ -976,8 +982,28 @@ function syncShipFiles(cb) {
   const entry = _shipPathById[cb.dataset.hullId];
   if (!entry) return;
   const checked = cb.checked;
+
+  // Sync the .ship file and sprite in the File Inventory
   syncFileCbByPath(entry.path, checked);
   if (entry.spritePath) syncFileCbByPath(entry.spritePath, checked);
+
+  // Sync every attached skin's .skin file and sprite in the File Inventory
+  entry.skinPaths.forEach(p => syncFileCbByPath(p, checked));
+  entry.skinSpritePaths.forEach(p => syncFileCbByPath(p, checked));
+
+  // Sync all variants that belong to this ship
+  entry.variantPaths.forEach(varPath => {
+    const safe = varPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const varCb = document.querySelector(`.export-variant-cb[data-path="${safe}"]`);
+    if (varCb) {
+      varCb.checked = checked;
+      setRowDeselected(varCb.closest('tr'), !checked);
+    }
+    syncFileCbByPath(varPath, checked);
+    const varSprite = _variantSpriteByPath[varPath];
+    if (varSprite) syncFileCbByPath(varSprite, checked);
+  });
+
   setRowDeselected(cb.closest('tr'), !checked);
 }
 
