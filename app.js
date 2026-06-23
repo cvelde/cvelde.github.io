@@ -72,6 +72,9 @@ const FILE_CATEGORIES = [
   { id:'wings',       label:'WING FILES',             icon:'✈',
     patterns:[/\.wing$/i],
     desc:'Fighter wing definitions' },
+  { id:'ship_systems', label:'SHIP SYSTEMS',          icon:'⚙',
+    patterns:[/\.system$/i],
+    desc:'Ship system specs referenced by ship_data.csv or systemId' },
   { id:'magicbounty', label:'MAGIC BOUNTIES',          icon:'🎯',
     patterns:[/^magicbounty_data\.json$/i, /^magicbounty_intel\.json$/i],
     pathPatterns:[/\/MagicBounty\//i, /\/config\/MagicBounty/i],
@@ -80,9 +83,9 @@ const FILE_CATEGORIES = [
     patterns:[/\.faction$/i, /^default_ship_roles\.json$/i, /^default_ranks\.json$/i, /^factions\.csv$/i],
     pathPatterns:[/\/world\/factions\//i],
     desc:'Faction definitions, ship roles & rank tables' },
-  { id:'planets',     label:'PLANETS / SYSTEMS',      icon:'🪐',
+  { id:'planets',     label:'PLANETS / STAR SYSTEMS', icon:'🪐',
     patterns:[/\.star_system$/i, /\.planet$/i, /^custom_entities\.json$/i, /^planets\.json$/i, /^tag_data\.json$/i, /^battle_objectives\.json$/i, /^contact_tag_data\.json$/i],
-    desc:'World, planet, system & custom entity definitions' },
+    desc:'World, planet, star system & custom entity definitions' },
   { id:'strings',     label:'STRINGS / LOCALES',      icon:'🌐',
     patterns:[/^tips\.json$/i, /lang_/i, /locale/i, /\.strings$/i, /^tips\.txt$/i],
     pathPatterns:[/\/strings\//i],
@@ -421,6 +424,20 @@ async function startAnalysis(files) {
     for (const m of matches) referenceCorpus.add(m.replace(/^"|"$/g,'').toLowerCase());
   };
 
+  const addDelimitedRefs = (rawText) => {
+    if (!rawText) return;
+    for (const token of rawText.split(/[,\t\r\n]+/)) {
+      const value = token.replace(/^"|"$/g,'').trim().toLowerCase();
+      if (value) referenceCorpus.add(value);
+    }
+  };
+
+  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const hasStandaloneId = (rawText, id) => {
+    if (!rawText || !id) return false;
+    return new RegExp(`(^|[^a-z0-9_-])${escapeRegExp(id)}([^a-z0-9_-]|$)`, 'i').test(rawText);
+  };
+
   const addOwner = (type, id, path, rawText, parentId=null) => {
     if (!rawText) return;
     refOwners.push({ type, id, path, raw: rawText.toLowerCase(), parentId });
@@ -442,11 +459,23 @@ async function startAnalysis(files) {
 
   // Add ship_data.csv text to the reference corpus
   if (csvPath) {
-    try { addRefs(null, await readText(byPath[csvPath])); } catch(e) {}
+    try {
+      const csvText = await readText(byPath[csvPath]);
+      addRefs(null, csvText);
+      addDelimitedRefs(csvText);
+      addOwner('csv', 'ship_data.csv', csvPath, csvText);
+    } catch(e) {}
   }
   // Also add weapon_data.csv so weapon IDs there aren't treated as unresolved
   const weaponCsvPath = allPaths.find(p => /weapon_data\.csv$/i.test(p));
-  if (weaponCsvPath) { try { addRefs(null, await readText(byPath[weaponCsvPath])); } catch(e) {} }
+  if (weaponCsvPath) {
+    try {
+      const weaponCsvText = await readText(byPath[weaponCsvPath]);
+      addRefs(null, weaponCsvText);
+      addDelimitedRefs(weaponCsvText);
+      addOwner('csv', 'weapon_data.csv', weaponCsvPath, weaponCsvText);
+    } catch(e) {}
+  }
 
   // Parse .wpn files so projectile IDs referenced inside them are in the corpus.
   // This prevents .proj files from appearing orphaned.
@@ -486,13 +515,14 @@ async function startAnalysis(files) {
     // Generic words like "sounds", "terrain", "tips" do NOT qualify and would produce
     // false-positive matches against common JSON keys.
     const looksLikeId = baseLower.length >= 4 && /[_\-]/.test(baseLower);
+    const canMatchBaseId = looksLikeId || ext === 'system';
 
     // 1. Exact filename in corpus, or any corpus entry is a path ending in this filename
     const refByName = referenceCorpus.has(nameLower)
       || [...referenceCorpus].some(r => r.endsWith('/' + nameLower) || r.endsWith('\\' + nameLower));
 
     // 2. Base name is a mod ID that appears as an exact value or as a path component
-    const refById = looksLikeId && (
+    const refById = canMatchBaseId && (
       referenceCorpus.has(baseLower)
       || [...referenceCorpus].some(r => r.endsWith('/' + baseLower) || r.endsWith('.' + baseLower))
     );
@@ -507,6 +537,7 @@ async function startAnalysis(files) {
       if (o.raw.includes('/' + baseLower + '.') || o.raw.includes('\\' + baseLower + '.')) return true;
       // ID-style reference: "basename" as a quoted standalone value
       if (looksLikeId && o.raw.includes('"' + baseLower + '"')) return true;
+      if (ext === 'system' && hasStandaloneId(o.raw, baseLower)) return true;
       return false;
     });
 
@@ -901,7 +932,7 @@ function renderFileInventory(allFilesByCat) {
     const groupId = `files-${cat.id}`;
     const cbClass = `export-file-cb export-file-cb-${cat.id}`;
     html += `<div class="redund-group">
-      <div class="redund-group-header">
+      <div class="redund-group-header" onclick="toggleGroup(event,this)">
         <span class="group-icon">${cat.icon}</span>
         <span class="group-name">${cat.label}</span>
         <span class="group-count">(${files.length} file${files.length!==1?'s':''})</span>
@@ -911,28 +942,31 @@ function renderFileInventory(allFilesByCat) {
           ${orphanCount ? `<button class="btn btn-sm btn-xs inv-orphan-btn" onclick="uncheckCategoryOrphans('${cat.id}')">✕ Orphans</button>` : ''}
           <span style="color:var(--text3);font-size:11px">${cat.desc}</span>
         </div>
+        <span class="group-chevron">▼</span>
       </div>
-      <div class="file-chips">
-        ${files.map((f, index)=>{
-          const ext = f.name.includes('.')?f.name.split('.').pop().toLowerCase():'';
-          const ownerText = fileOwnerText(f);
-          const isImg = /^(png|jpg|jpeg|webp|svg)$/.test(ext);
-          const thumbHtml = isImg
-            ? `<div class="sprite-cell chip-sprite" data-sprite-path="${esc(f.path)}" onmouseenter="showSpritePreview(this,event)" onmouseleave="hideSpritePreview()"><img class="sprite-thumb" data-path="${esc(f.path)}" width="20" height="20" style="object-fit:contain;image-rendering:pixelated;display:block;cursor:zoom-in"></div>`
-            : '';
-          return `<div class="file-chip ${index >= 3 ? 'is-collapsed-entry' : ''}" data-collapse-group="${groupId}" data-chip-path="${esc(f.path)}" title="${esc(f.path)}">
-            <input type="checkbox" class="${cbClass}" checked data-path="${esc(f.path)}" onchange="onAnyCheckChange(this)" style="margin-right:4px;cursor:pointer;flex-shrink:0">
-            ${thumbHtml}
-            <span class="chip-ext ${getExtClass(ext)}">.${ext||'?'}</span>
-            <span>${esc(f.name)}</span>
-            <span class="td-tag badge-muted">${formatBytes(f.size || 0)}</span>
-            ${f.orphan ? '<span class="td-tag tag-warn">orphan</span>' : ''}
-            ${ownerText ? `<span class="td-tag ${f.orphan?'tag-warn':'tag-ok'}" title="${esc(ownerText)}">${esc(ownerText)}</span>` : ''}
-            <span class="risk-badge td-tag" style="display:none"></span>
-          </div>`;
-        }).join('')}
+      <div class="redund-group-body">
+        <div class="file-chips">
+          ${files.map((f, index)=>{
+            const ext = f.name.includes('.')?f.name.split('.').pop().toLowerCase():'';
+            const ownerText = fileOwnerText(f);
+            const isImg = /^(png|jpg|jpeg|webp|svg)$/.test(ext);
+            const thumbHtml = isImg
+              ? `<div class="sprite-cell chip-sprite" data-sprite-path="${esc(f.path)}" onmouseenter="showSpritePreview(this,event)" onmouseleave="hideSpritePreview()"><img class="sprite-thumb" data-path="${esc(f.path)}" width="20" height="20" style="object-fit:contain;image-rendering:pixelated;display:block;cursor:zoom-in"></div>`
+              : '';
+            return `<div class="file-chip ${index >= 3 ? 'is-collapsed-entry' : ''}" data-collapse-group="${groupId}" data-chip-path="${esc(f.path)}" title="${esc(f.path)}">
+              <input type="checkbox" class="${cbClass}" checked data-path="${esc(f.path)}" onchange="onAnyCheckChange(this)" style="margin-right:4px;cursor:pointer;flex-shrink:0">
+              ${thumbHtml}
+              <span class="chip-ext ${getExtClass(ext)}">.${ext||'?'}</span>
+              <span>${esc(f.name)}</span>
+              <span class="td-tag badge-muted">${formatBytes(f.size || 0)}</span>
+              ${f.orphan ? '<span class="td-tag tag-warn">orphan</span>' : ''}
+              ${ownerText ? `<span class="td-tag ${f.orphan?'tag-warn':'tag-ok'}" title="${esc(ownerText)}">${esc(ownerText)}</span>` : ''}
+              <span class="risk-badge td-tag" style="display:none"></span>
+            </div>`;
+          }).join('')}
+        </div>
+        ${files.length > 3 ? showAllControl(groupId, files.length - 3) : ''}
       </div>
-      ${files.length > 3 ? showAllControl(groupId, files.length - 3) : ''}
     </div>`;
   }
   return html || '<div class="empty">No files found</div>';
@@ -943,7 +977,7 @@ function getExtClass(ext) {
     ship:'tag-ship', skin:'tag-variant', variant:'tag-variant',
     wpn:'tag-weapon', proj:'tag-weapon', wing:'tag-wing',
     csv:'tag-ok', json:'badge-info', version:'badge-info',
-    faction:'tag-ship', 'star_system':'badge-info', planet:'badge-info',
+    faction:'tag-ship', system:'badge-info', 'star_system':'badge-info', planet:'badge-info',
   };
   return m[ext] || 'badge-muted';
 }
@@ -982,12 +1016,19 @@ function toggleSection(header) {
   ch.textContent = open ? '▲' : '▼';
 }
 
+function toggleGroup(event, header) {
+  if (event?.target?.closest('button,input,a')) return;
+  const body = header.nextElementSibling;
+  const ch = header.querySelector('.group-chevron');
+  const open = body?.classList.toggle('open');
+  if (ch) ch.textContent = open ? '▲' : '▼';
+}
+
 function filterTable(tableId, search) {
   const tbl = $(tableId);
   if (!tbl) return;
   const q = search.toLowerCase();
-  // Auto-expand when user types something
-  if (q && !tbl._expanded) { tbl._expanded = true; }
+  if (q && !tbl._expanded) expandCollapsed(tableId);
   let vis = 0;
   for (const tr of tbl.tBodies[0].rows) {
     if (tr.classList.contains('var-group-header')) {
@@ -1032,7 +1073,7 @@ function markCollapsed(html, groupId) {
 }
 
 function showAllControl(groupId, hiddenCount) {
-  return `<div class="show-more-row">
+  return `<div class="show-more-row" data-collapse-control="${esc(groupId)}">
     <button class="btn btn-sm" type="button" onclick="expandCollapsed('${esc(groupId)}', this)">Show all ${hiddenCount} more</button>
   </div>`;
 }
@@ -1044,10 +1085,11 @@ function expandCollapsed(groupId, btn) {
     if (el.tagName === 'TR') el.style.display = '';
   });
   const table = $(groupId);
-  if (table) {
+  if (table && !table._expanded) {
     table._expanded = true;
     filterTable(groupId, $(groupId+'-search')?.value || '');
   }
+  document.querySelectorAll(`[data-collapse-control="${groupId}"]`).forEach(el => el.remove());
   btn?.closest('.show-more-row')?.remove();
 }
 
@@ -1316,20 +1358,35 @@ function uncheckOrphanedFiles() {
 function toggleCheckboxes(className) {
   const boxes = Array.from(document.querySelectorAll('.' + className));
   const newState = !boxes.every(cb => cb.checked);
-  boxes.forEach(cb => applyToggle(cb, cbType(cb), newState));
+  let skipped = 0;
+  boxes.forEach(cb => {
+    const type = cbType(cb);
+    if (!newState && getActiveRisksForPath(primaryPathForCb(cb, type)).some(r => r.severity === 'unsafe')) { skipped++; return; }
+    applyToggle(cb, type, newState);
+  });
+  if (skipped > 0) showNotification(`Skipped ${skipped} unsafe referenced file${skipped !== 1 ? 's' : ''}.`);
 }
 
 // ── PER-CATEGORY FILE CONTROLS ────────────────────────────────────────────────
 function toggleCategoryFiles(catId) {
   const cbs = Array.from(document.querySelectorAll(`.export-file-cb-${catId}`));
   const newState = !cbs.every(cb => cb.checked);
-  cbs.forEach(cb => applyFileToggle(cb.dataset.path, newState, cb));
+  let skipped = 0;
+  cbs.forEach(cb => {
+    if (!newState && getActiveRisksForPath(cb.dataset.path).some(r => r.severity === 'unsafe')) { skipped++; return; }
+    applyFileToggle(cb.dataset.path, newState, cb);
+  });
+  if (skipped > 0) showNotification(`Skipped ${skipped} unsafe referenced file${skipped !== 1 ? 's' : ''}.`);
 }
 
 function uncheckCategoryOrphans(catId) {
+  let skipped = 0;
   document.querySelectorAll(`.export-file-cb-${catId}`).forEach(cb => {
-    if (_allOrphanPaths.has(cb.dataset.path)) applyFileToggle(cb.dataset.path, false, cb);
+    if (!_allOrphanPaths.has(cb.dataset.path)) return;
+    if (getActiveRisksForPath(cb.dataset.path).some(r => r.severity === 'unsafe')) { skipped++; return; }
+    applyFileToggle(cb.dataset.path, false, cb);
   });
+  if (skipped > 0) showNotification(`Skipped ${skipped} unsafe referenced orphan${skipped !== 1 ? 's' : ''}.`);
 }
 
 // ── SPRITE PREVIEW ────────────────────────────────────────────────────────────
@@ -1406,6 +1463,25 @@ async function buildRiskGraph({ allPaths, byPath, ships, skins, variants, shipBy
     return null;
   };
 
+  const systemPathById = {};
+  for (const p of allPaths.filter(p => /\.system$/i.test(p))) {
+    const base = p.split('/').pop().replace(/\.system$/i, '').toLowerCase();
+    systemPathById[base] = p;
+    try {
+      const data = parseStarsectorJson(await readText(byPath[p]));
+      if (data?.id) systemPathById[String(data.id).toLowerCase()] = p;
+    } catch(e) {}
+  }
+
+  const csvField = (row, names) => {
+    if (!row) return '';
+    const want = names.map(n => n.toLowerCase());
+    for (const [key, value] of Object.entries(row)) {
+      if (want.includes(key.trim().toLowerCase())) return value;
+    }
+    return '';
+  };
+
   // ── Parse .wpn files ───────────────────────────────────────────────────────
   const wpnParsed = {};
   for (const p of allPaths.filter(p => /\.wpn$/i.test(p))) {
@@ -1443,6 +1519,33 @@ async function buildRiskGraph({ allPaths, byPath, ships, skins, variants, shipBy
         });
       }
     }
+  }
+
+  // ── Ship system deps ──────────────────────────────────────────────────────
+  for (const s of ships) {
+    const systemId = csvField(s.csvRow, ['system id', 'systemid']) || s.data?.systemId;
+    if (!systemId) continue;
+    const sysPath = systemPathById[String(systemId).toLowerCase()];
+    if (!sysPath) continue;
+    addRisk(sysPath, {
+      severity: 'unsafe',
+      msg: `Ship system "${systemId}" used by "${s.hullId}" — ship may fail to load or lose its system`,
+      dependentPaths: [s.path],
+      fixes: [{ label: `Also exclude ${s.shortName} and variants`, type: 'cascade_uncheck',
+        paths: [s.path, ...(s.variants||[]).map(v=>v.path), ...(s.skins||[]).map(sk=>sk.path)] }]
+    });
+  }
+  for (const sk of skins) {
+    const systemId = sk.data?.systemId;
+    if (!systemId || typeof systemId !== 'string') continue;
+    const sysPath = systemPathById[systemId.toLowerCase()];
+    if (!sysPath) continue;
+    addRisk(sysPath, {
+      severity: 'unsafe',
+      msg: `Ship system "${systemId}" used by skin "${sk.skinHullId}" — skin may fail to load or lose its system`,
+      dependentPaths: [sk.path],
+      fixes: [{ label: `Also exclude ${sk.shortName}`, type: 'cascade_uncheck', paths: [sk.path] }]
+    });
   }
 
   // ── Ship sprite & built-in weapon deps ────────────────────────────────────
@@ -1737,24 +1840,100 @@ function refreshRiskBadges() {
   });
 }
 
+function riskFixAppliesToPath(fix, path) {
+  if (!fix || !path) return false;
+  if (fix.type === 'patch_file') return fix.targetPath === path;
+  if (fix.type === 'cascade_uncheck') return Array.isArray(fix.paths) && fix.paths.includes(path);
+  return false;
+}
+
+function buildRiskFixGroups(activeRisks) {
+  const groups = [];
+  let fixIdx = 0;
+
+  for (const risk of activeRisks) {
+    const fixes = (risk.fixes || []).map(fix => ({ ...fix, _fixIndex: fixIdx++ }));
+    if (!fixes.length) continue;
+
+    const grouped = new Set();
+    const dependentPaths = risk.dependentPaths || [];
+    for (const depPath of dependentPaths) {
+      const depFixes = fixes.filter(fix => riskFixAppliesToPath(fix, depPath));
+      const hasPatch = depFixes.some(fix => fix.type === 'patch_file');
+      const hasExclude = depFixes.some(fix => fix.type === 'cascade_uncheck');
+      if (depFixes.length > 1 && hasPatch && hasExclude) {
+        depFixes.forEach(fix => grouped.add(fix._fixIndex));
+        groups.push({
+          type: 'exclusive',
+          label: depPath.split('/').pop(),
+          fixes: depFixes.sort((a, b) => (a.type === 'patch_file' ? -1 : 1) - (b.type === 'patch_file' ? -1 : 1))
+        });
+      }
+    }
+
+    for (const fix of fixes) {
+      if (!grouped.has(fix._fixIndex)) groups.push({ type: 'optional', fixes: [fix] });
+    }
+  }
+
+  return groups;
+}
+
+function riskFixTypeLabel(fix) {
+  return fix.type === 'patch_file' ? 'patches file' : 'unchecks';
+}
+
+function riskFixMatchesExistingAction(fix) {
+  if (!fix) return false;
+  if (fix.type === 'patch_file') return !!_pendingPatches[fix.targetPath]?.length;
+  if (fix.type === 'cascade_uncheck') return Array.isArray(fix.paths) && fix.paths.some(p => !isPathChecked(p));
+  return false;
+}
+
+function applyRiskFix(fix) {
+  if (!fix) return;
+  if (fix.type === 'cascade_uncheck') {
+    for (const p of fix.paths) {
+      const safe = p.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+      const fileCb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
+      if (fileCb) applyFileToggle(p, false, fileCb);
+    }
+  } else if (fix.type === 'patch_file') {
+    addPatch(fix.targetPath, fix.description, fix.apply);
+  }
+}
+
 // ── RISK MODAL ────────────────────────────────────────────────────────────────
 function showRiskModal(filePath, activeRisks, onProceed) {
   document.getElementById('risk-modal')?.remove();
+  const fixGroups = buildRiskFixGroups(activeRisks);
   const allFixes = {};
-  let fixIdx = 0;
-  for (const r of activeRisks) {
-    for (const fix of r.fixes) { allFixes[fixIdx] = fix; fixIdx++; }
-  }
-  _currentModal = { filePath, activeRisks, allFixes, onProceed };
+  for (const group of fixGroups) for (const fix of group.fixes) allFixes[fix._fixIndex] = fix;
+  _currentModal = { filePath, activeRisks, allFixes, fixGroups, onProceed };
   const fname = filePath.split('/').pop();
   const maxSev = activeRisks.some(r => r.severity === 'unsafe') ? 'unsafe' : 'warn';
   const sevColor = maxSev === 'unsafe' ? 'var(--red)' : 'var(--amber)';
-  const fixRows = Object.entries(allFixes).map(([i, fix]) => `
-    <label class="risk-fix-row">
-      <input type="checkbox" class="risk-fix-cb" data-fix-index="${i}" checked style="cursor:pointer;flex-shrink:0">
+  const fixRows = fixGroups.map((group, groupIdx) => {
+    if (group.type === 'exclusive') {
+      const existingIdx = group.fixes.findIndex(riskFixMatchesExistingAction);
+      const defaultIdx = existingIdx >= 0 ? existingIdx : 0;
+      return `<div class="risk-fix-group">
+        <div class="risk-fix-group-label">${esc(group.label)} fix</div>
+        ${group.fixes.map((fix, optIdx) => `
+          <label class="risk-fix-row">
+            <input type="radio" class="risk-fix-radio" name="risk-fix-group-${groupIdx}" data-fix-index="${fix._fixIndex}" ${optIdx === defaultIdx ? 'checked' : ''} style="cursor:pointer;flex-shrink:0">
+            <span style="flex:1">${esc(fix.label)}</span>
+            <span class="risk-fix-type">${riskFixTypeLabel(fix)}</span>
+          </label>`).join('')}
+      </div>`;
+    }
+    const fix = group.fixes[0];
+    return `<label class="risk-fix-row">
+      <input type="checkbox" class="risk-fix-cb" data-fix-index="${fix._fixIndex}" checked style="cursor:pointer;flex-shrink:0">
       <span style="flex:1">${esc(fix.label)}</span>
-      <span class="risk-fix-type">${fix.type === 'patch_file' ? '✏ patches file' : '☑ unchecks'}</span>
-    </label>`).join('');
+      <span class="risk-fix-type">${riskFixTypeLabel(fix)}</span>
+    </label>`;
+  }).join('');
   const modal = document.createElement('div');
   modal.id = 'risk-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -1800,18 +1979,9 @@ function modalProceedNoFix() {
 function modalApplyAndProceed() {
   if (!_currentModal) { document.getElementById('risk-modal')?.remove(); return; }
   const { allFixes, onProceed } = _currentModal;
-  document.querySelectorAll('.risk-fix-cb:checked').forEach(cb => {
+  document.querySelectorAll('.risk-fix-cb:checked,.risk-fix-radio:checked').forEach(cb => {
     const fix = allFixes[parseInt(cb.dataset.fixIndex)];
-    if (!fix) return;
-    if (fix.type === 'cascade_uncheck') {
-      for (const p of fix.paths) {
-        const safe = p.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
-        const fileCb = document.querySelector(`.export-file-cb[data-path="${safe}"]`);
-        if (fileCb) applyFileToggle(p, false, fileCb);
-      }
-    } else if (fix.type === 'patch_file') {
-      addPatch(fix.targetPath, fix.description, fix.apply);
-    }
+    applyRiskFix(fix);
   });
   _currentModal = null;
   document.getElementById('risk-modal')?.remove();
@@ -1820,7 +1990,57 @@ function modalApplyAndProceed() {
 }
 
 // ── PATCH & CHANGE LOG ────────────────────────────────────────────────────────
+function removePatchesForPath(path) {
+  if (!path || !_pendingPatches[path]) return;
+  delete _pendingPatches[path];
+  _changeLog = _changeLog.filter(e => e.icon !== '✂️' || e.path !== path);
+}
+
+function removeExclusionsForPath(path) {
+  if (!path) return [];
+  const removed = [];
+  _changeLog = _changeLog.filter(e => {
+    if (e.icon === '✂️') return true;
+    if (e.path === path || (Array.isArray(e.cascade) && e.cascade.includes(path))) {
+      removed.push(e);
+      return false;
+    }
+    return true;
+  });
+  return removed;
+}
+
+function setPathIncludedVisual(path) {
+  if (!path) return;
+  syncFileCbByPath(path, true);
+  const safe = path.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const vCb = document.querySelector(`.export-variant-cb[data-path="${safe}"]`);
+  if (vCb) { vCb.checked = true; setRowDeselected(vCb.closest('tr'), false); }
+  const skCb = document.querySelector(`.export-skin-cb[data-path="${safe}"]`);
+  if (skCb) { skCb.checked = true; setRowDeselected(skCb.closest('tr'), false); }
+  const hullId = _shipFilePathToHullId[path];
+  if (hullId) {
+    const escapedId = hullId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const sCb = document.querySelector(`.export-ship-cb[data-hull-id="${escapedId}"]`);
+    if (sCb) { sCb.checked = true; setRowDeselected(sCb.closest('tr'), false); }
+  }
+}
+
+function ensurePatchTargetIncluded(path) {
+  if (!path) return;
+  const removedExclusions = removeExclusionsForPath(path);
+  for (const entry of removedExclusions) {
+    if (Array.isArray(entry.cascade)) entry.cascade.forEach(setPathIncludedVisual);
+    else setPathIncludedVisual(entry.path);
+  }
+  setPathIncludedVisual(path);
+}
+
 function addChangeEntry(icon, title, path, meta = {}) {
+  if (icon !== '✂️') {
+    removePatchesForPath(path);
+    if (Array.isArray(meta.cascade)) meta.cascade.forEach(removePatchesForPath);
+  }
   if (_changeLog.some(e => e.title === title && e.path === path)) return;
   const id = Date.now() + Math.random();
   _changeLog.push({ icon, title, path, id, ...meta });
@@ -1828,6 +2048,7 @@ function addChangeEntry(icon, title, path, meta = {}) {
 }
 
 function addPatch(path, description, applyFn) {
+  ensurePatchTargetIncluded(path);
   if (!_pendingPatches[path]) _pendingPatches[path] = [];
   if (_pendingPatches[path].some(p => p.description === description)) return;
   _pendingPatches[path].push({ description, apply: applyFn });
@@ -1887,6 +2108,13 @@ function renderChangeLogSection() {
   if (badge) badge.textContent = `${exclusions.length} excluded · ${patches.length} patched`;
   const body = el.querySelector('.change-log-body');
   if (!body) return;
+  const entriesByCat = {};
+  for (const entry of _changeLog) {
+    const name = entry.path?.split('/').pop() || '';
+    const cat = categoriseFile(name, entry.path || '');
+    if (!entriesByCat[cat.id]) entriesByCat[cat.id] = { cat, entries: [] };
+    entriesByCat[cat.id].entries.push(entry);
+  }
   const renderEntries = (entries) => entries.map(e => {
     const sub = e.cascade?.length > 1
       ? `<div class="change-entry-cascade">${e.cascade.slice(1).map(p=>`<span class="change-entry-sub">${esc(p.split('/').pop())}</span>`).join('')}</div>`
@@ -1901,9 +2129,35 @@ function renderChangeLogSection() {
       <button class="btn btn-sm" onclick="undoChangeEntry(${e.id})">↩ Undo</button>
     </div>`;
   }).join('');
+  const renderCategoryGroup = ({ cat, entries }) => {
+    const groupPatches = entries.filter(e => e.icon === '✂️').length;
+    const groupExclusions = entries.length - groupPatches;
+    const bits = [
+      groupExclusions ? `${groupExclusions} excluded` : '',
+      groupPatches ? `${groupPatches} patched` : ''
+    ].filter(Boolean).join(' · ');
+    return `<div class="redund-group change-log-group">
+      <div class="redund-group-header" onclick="toggleGroup(event,this)">
+        <span class="group-icon">${cat.icon}</span>
+        <span class="group-name">${cat.label}</span>
+        <span class="group-count">(${entries.length} change${entries.length!==1?'s':''})</span>
+        <span class="td-tag badge-info">${esc(bits)}</span>
+        <div class="group-actions">
+          <span style="color:var(--text3);font-size:11px">${cat.desc}</span>
+        </div>
+        <span class="group-chevron">▼</span>
+      </div>
+      <div class="redund-group-body change-log-group-body">${renderEntries(entries)}</div>
+    </div>`;
+  };
+  const groupedEntries = FILE_CATEGORIES
+    .map(cat => entriesByCat[cat.id])
+    .filter(Boolean)
+    .map(renderCategoryGroup)
+    .join('');
   body.innerHTML = `<div class="change-log-wrap">
-    ${exclusions.length ? `<div class="change-log-meta"><strong>${exclusions.length} file${exclusions.length!==1?'s':''} excluded from export</strong></div>${renderEntries(exclusions)}` : ''}
-    ${patches.length ? `<div class="change-log-meta" style="margin-top:${exclusions.length?'12px':'0'}"><strong>${patches.length} file content patch${patches.length!==1?'es':''}</strong> applied in the exported ZIP — originals untouched</div>${renderEntries(patches)}` : ''}
+    <div class="change-log-meta"><strong>${exclusions.length} file${exclusions.length!==1?'s':''} excluded from export · ${patches.length} file content patch${patches.length!==1?'es':''}</strong> applied in the exported ZIP — originals untouched</div>
+    ${groupedEntries}
     <div style="padding:12px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-export" onclick="exportMod()" id="export-btn" title="Export selected files as a ZIP">⬇ Export Mod ZIP</button>
       <button class="btn btn-sm" onclick="clearAllPatches()" style="color:var(--red);border-color:rgba(224,85,85,.4)">✕ Clear All Changes</button>
