@@ -10,33 +10,134 @@ let _variantSpriteByPath = {};// variant path → sprite file path
 let _spriteTooltip = null;
 
 // ── FILE CATEGORIES ───────────────────────────────────────────────────────────
+// Each category can have `patterns` (tested against filename) and `pathPatterns`
+// (tested against the full path). First match wins; 'other' is the fallback.
 const FILE_CATEGORIES = [
-  { id:'settings',  label:'MOD SETTINGS',      icon:'⚙',  patterns:[/mod_info\.json$/i,/settings\.json$/i,/config\.json$/i,/options\.json$/i], desc:'Top-level configuration files' },
-  { id:'lunalib',   label:'LUNALIB CONFIG',     icon:'🌙', patterns:[/lunaSettings\.json$/i,/lunalib.*\.json$/i,/\.lunasettings$/i,/lunaConf/i], desc:'LunaLib plugin settings' },
-  { id:'sounds',    label:'SOUND FILES',        icon:'🔊', patterns:[/\.ogg$/i,/\.wav$/i,/\.mp3$/i], desc:'Audio assets' },
-  { id:'graphics',  label:'GRAPHICS / SPRITES', icon:'🖼', patterns:[/\.png$/i,/\.jpg$/i,/\.jpeg$/i,/\.webp$/i,/\.svg$/i], desc:'Image and sprite assets' },
-  { id:'scripts',   label:'SCRIPTS',            icon:'📜', patterns:[/\.java$/i,/\.class$/i,/\.jar$/i,/\.kt$/i,/\.groovy$/i], desc:'Java/script source files' },
-  { id:'csv',       label:'DATA TABLES',        icon:'📊', patterns:[/\.csv$/i,/\.tsv$/i], desc:'CSV data tables' },
-  { id:'ships',     label:'SHIP FILES',         icon:'🚀', patterns:[/\.ship$/i], desc:'Ship definition files' },
-  { id:'skins',     label:'SKIN FILES',         icon:'🎨', patterns:[/\.skin$/i], desc:'Ship skin/reskin definitions' },
-  { id:'variants',  label:'VARIANT FILES',      icon:'🔩', patterns:[/\.variant$/i], desc:'Ship variant loadouts' },
-  { id:'weapons',   label:'WEAPON FILES',       icon:'⚡', patterns:[/\.wpn$/i,/\.proj$/i], desc:'Weapon definitions' },
-  { id:'wings',     label:'WING FILES',         icon:'✈',  patterns:[/\.wing$/i], desc:'Fighter wing definitions' },
-  { id:'strings',   label:'STRINGS / LOCALES',  icon:'🌐', patterns:[/strings\.json$/i,/lang_/i,/locale/i,/\.strings$/i], desc:'Localisation and string files' },
-  { id:'desc',      label:'DESCRIPTIONS',       icon:'📝', patterns:[/descriptions\.csv$/i,/tips\.txt$/i,/readme/i,/\.txt$/i,/\.md$/i], desc:'Description text and documentation' },
-  { id:'faction',   label:'FACTIONS',           icon:'🚩', patterns:[/\.faction$/i], desc:'Faction definition files' },
-  { id:'planets',   label:'PLANETS / SYSTEMS',  icon:'🪐', patterns:[/\.star_system$/i,/\.planet$/i,/custom_entities\.json$/i], desc:'Planet and star system definitions' },
-  { id:'other',     label:'UNCATEGORISED',      icon:'📁', patterns:[], desc:'Files not matching any known category' }
+  { id:'settings',    label:'MOD SETTINGS',          icon:'⚙',
+    patterns:[/^mod_info\.json$/i, /^settings\.json$/i, /^modsettings\.json$/i],
+    desc:'Mod & game configuration files' },
+  { id:'lunalib',     label:'LUNALIB CONFIG',         icon:'🌙',
+    patterns:[/lunasettingsconfig\.json$/i, /lunasettings\.json$/i],
+    desc:'LunaLib in-game settings (LunaSettingsConfig.json)' },
+  { id:'graphicslib', label:'GRAPHICSLIB / VISUALS',  icon:'✨',
+    patterns:[/^engine_styles\.json$/i, /^hull_styles\.json$/i, /_texture_data\.csv$/i, /_lights?_data\.csv$/i, /^magictrail_data\.csv$/i],
+    desc:'GraphicsLib shaders, engine styles & texture maps' },
+  { id:'nexerelin',   label:'NEXERELIN CONFIG',       icon:'⚔',
+    patterns:[/^mod_factions\.csv$/i, /^customstarts\.json$/i, /^character_backgrounds\.csv$/i],
+    pathPatterns:[/\/exerelinFactionConfig\//i, /\/takenoprisonersFactionConfig\//i, /\/config\/exerelin\//i],
+    desc:'Nexerelin faction warfare & diplomacy configs' },
+  { id:'chatter',     label:'CHATTER / DIALOGUE',     icon:'💬',
+    patterns:[/^excluded_hulls\.csv$/i],
+    pathPatterns:[/\/chatter\/characters\//i, /\/chatter\//i],
+    desc:'In-combat chatter character dialogue files' },
+  { id:'version',     label:'VERSION CHECKER',        icon:'🔖',
+    patterns:[/\.version$/i, /^version_files\.csv$/i],
+    pathPatterns:[/\/config\/version\//i],
+    desc:'Version Checker integration files (.version, version_files.csv)' },
+  { id:'missions',    label:'MISSIONS',               icon:'🎯',
+    patterns:[/^descriptor\.json$/i, /^mission_list\.csv$/i],
+    desc:'Mission descriptor and list files' },
+  { id:'campaign',    label:'CAMPAIGN DATA',          icon:'🗺',
+    patterns:[/^abilities\.csv$/i, /^bar_events\.csv$/i, /^industries\.csv$/i, /^market_conditions\.csv$/i, /^submarkets\.csv$/i, /^special_items\.csv$/i, /^person_missions\.csv$/i, /^pings\.json$/i, /^terrain\.json$/i, /^drop_groups\.csv$/i, /^planet_gen_data\.csv$/i, /^star_gen_data\.csv$/i, /^salvage_entity_gen_data\.csv$/i, /^condition_gen_data\.csv$/i],
+    desc:'Campaign abilities, markets, industries & procgen tables' },
+  { id:'sounds',      label:'SOUND FILES',            icon:'🔊',
+    patterns:[/\.ogg$/i, /\.wav$/i, /\.mp3$/i, /^sounds\.json$/i],
+    desc:'Audio assets and sound registry' },
+  { id:'graphics',    label:'GRAPHICS / SPRITES',     icon:'🖼',
+    patterns:[/\.png$/i, /\.jpg$/i, /\.jpeg$/i, /\.webp$/i, /\.svg$/i],
+    desc:'Image and sprite assets' },
+  { id:'scripts',     label:'SCRIPTS',                icon:'📜',
+    patterns:[/\.java$/i, /\.class$/i, /\.jar$/i, /\.kt$/i, /\.groovy$/i],
+    desc:'Java source files and compiled code' },
+  { id:'ships',       label:'SHIP FILES',             icon:'🚀',
+    patterns:[/\.ship$/i],
+    desc:'Ship hull definitions' },
+  { id:'skins',       label:'SKIN FILES',             icon:'🎨',
+    patterns:[/\.skin$/i],
+    desc:'Ship skin/reskin definitions' },
+  { id:'variants',    label:'VARIANT FILES',          icon:'🔩',
+    patterns:[/\.variant$/i],
+    desc:'Ship variant loadouts' },
+  { id:'weapons',     label:'WEAPON FILES',           icon:'⚡',
+    patterns:[/\.wpn$/i, /\.proj$/i],
+    desc:'Weapon and projectile definitions' },
+  { id:'wings',       label:'WING FILES',             icon:'✈',
+    patterns:[/\.wing$/i],
+    desc:'Fighter wing definitions' },
+  { id:'faction',     label:'FACTIONS',               icon:'🚩',
+    patterns:[/\.faction$/i, /^default_ship_roles\.json$/i, /^default_ranks\.json$/i, /^factions\.csv$/i],
+    pathPatterns:[/\/world\/factions\//i],
+    desc:'Faction definitions, ship roles & rank tables' },
+  { id:'planets',     label:'PLANETS / SYSTEMS',      icon:'🪐',
+    patterns:[/\.star_system$/i, /\.planet$/i, /^custom_entities\.json$/i, /^planets\.json$/i, /^tag_data\.json$/i, /^battle_objectives\.json$/i, /^contact_tag_data\.json$/i],
+    desc:'World, planet, system & custom entity definitions' },
+  { id:'strings',     label:'STRINGS / LOCALES',      icon:'🌐',
+    patterns:[/^tips\.json$/i, /lang_/i, /locale/i, /\.strings$/i, /^tips\.txt$/i],
+    pathPatterns:[/\/strings\//i],
+    desc:'Localisation and string tables' },
+  { id:'desc',        label:'DESCRIPTIONS',           icon:'📝',
+    patterns:[/^descriptions\.csv$/i, /readme/i, /\.txt$/i, /\.md$/i],
+    desc:'Description text and documentation' },
+  { id:'csv',         label:'DATA TABLES',            icon:'📊',
+    patterns:[/\.csv$/i, /\.tsv$/i],
+    desc:'CSV data tables' },
+  { id:'other',       label:'UNCATEGORISED',          icon:'📁',
+    patterns:[],
+    desc:'Files not matching any known category' }
 ];
 
-// These extensions are always "referenced by the game engine" – we can't easily
-// trace every reference to them, so they are excluded from the orphan check.
+// Extensions whose files the game engine loads by directory scan — tracing
+// every reference to them is impractical, so skip them in the orphan check.
 const ORPHAN_EXEMPT_EXTS = new Set(['java','class','jar','kt','groovy','ogg','wav','mp3','faction','star_system','planet','txt','md','strings']);
 
-function categoriseFile(name) {
+// Exact filenames (lowercased) that are loaded by the game or library mods by
+// convention (e.g. GraphicsLib scans for engine_styles.json in every mod).
+// These are never orphaned even if nothing in the mod JSON references them.
+const ORPHAN_EXEMPT_NAMES = new Set([
+  'ship_data.csv','weapon_data.csv','wing_data.csv','fighter_data.csv',
+  'abilities.csv','hullmods.csv','descriptions.csv','bar_events.csv',
+  'person_missions.csv','mission_list.csv','industries.csv',
+  'market_conditions.csv','submarkets.csv','special_items.csv',
+  'sounds.json','planets.json','custom_entities.json','engine_styles.json',
+  'hull_styles.json','tag_data.json','battle_objectives.json','contact_tag_data.json',
+  'lunasettingsconfig.json','mod_info.json','settings.json','modsettings.json',
+  'version_files.csv','magic_achievements.csv','magictrail_data.csv',
+  'aptitude_data.csv','skill_data.csv','default_ship_roles.json',
+  'default_ranks.json','pings.json','terrain.json','commands.csv',
+  'command_listeners.csv','factions.csv','mod_factions.csv',
+  'customstarts.json','character_backgrounds.csv','excluded_hulls.csv',
+  'drop_groups.csv','planet_gen_data.csv','star_gen_data.csv',
+  'salvage_entity_gen_data.csv','condition_gen_data.csv',
+]);
+
+// Path sub-patterns for files loaded by directory scanning in library mods.
+const ORPHAN_EXEMPT_PATH_PATTERNS = [
+  /\/data\/config\/exerelinFactionConfig\//i,
+  /\/data\/config\/takenoprisonersFactionConfig\//i,
+  /\/data\/config\/exerelin\//i,
+  /\/data\/config\/chatter\//i,
+  /\/data\/config\/secondInCommand\//i,
+  /\/data\/config\/indEvo\//i,
+  /\/data\/config\/modFiles\//i,
+  /\/data\/config\/version\//i,
+  /\/data\/config\/ExiledSpace\//i,
+  /\/data\/world\/factions\//i,
+  /\/data\/strings\//i,
+  /\/data\/lights\//i,
+  /\/data\/missions\//i,
+  /\/data\/campaign\/procgen\//i,
+  /\/data\/campaign\/frontiers\//i,
+  /\/data\/characters\//i,
+  /_texture_data\.csv$/i,
+  /_lights?_data\.csv$/i,
+  /\.version$/i,
+];
+
+function categoriseFile(name, path = '') {
   for (const cat of FILE_CATEGORIES) {
     if (cat.id === 'other') continue;
     if (cat.patterns.some(p => p.test(name))) return cat;
+    if (cat.pathPatterns?.some(p => p.test(path))) return cat;
   }
   return FILE_CATEGORIES.find(c => c.id === 'other');
 }
@@ -313,47 +414,85 @@ async function startAnalysis(files) {
     addOwner('variant', v.shortName, v.path, v.rawText || JSON.stringify(v.data), v.refId);
   }
 
-  // Also add CSV text
+  // Add ship_data.csv text to the reference corpus
   if (csvPath) {
     try { addRefs(null, await readText(byPath[csvPath])); } catch(e) {}
   }
+  // Also add weapon_data.csv so weapon IDs there aren't treated as unresolved
+  const weaponCsvPath = allPaths.find(p => /weapon_data\.csv$/i.test(p));
+  if (weaponCsvPath) { try { addRefs(null, await readText(byPath[weaponCsvPath])); } catch(e) {} }
 
-  // For each file, determine if its filename (or basename without ext) appears anywhere
-  // in the reference corpus. Files in certain categories are exempt.
+  // Parse .wpn files so projectile IDs referenced inside them are in the corpus.
+  // This prevents .proj files from appearing orphaned.
+  for (const p of allPaths.filter(p => /\.wpn$/i.test(p))) {
+    try {
+      const rawText = await readText(byPath[p]);
+      addRefs(null, rawText);
+      addOwner('weapon', p.split('/').pop().replace(/\.wpn$/i,''), p, rawText);
+    } catch(e) {}
+  }
+
+  // For each file, determine whether it is referenced by anything parsed above.
+  // Files in certain categories, with certain extensions, or at known game-
+  // convention paths are exempt and never flagged as orphaned.
   const orphans = [];
   const fileMetaByPath = {};
   for (const p of allPaths) {
     const name = p.split('/').pop();
     const ext  = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
-    // Skip files that are themselves primary data or are system files
+
+    // Extension-level exemptions (game always loads these by type)
     if (ORPHAN_EXEMPT_EXTS.has(ext)) continue;
-    // Skip mod_info.json and ship_data.csv — they ARE the reference roots
+    // Primary data roots
     if (/mod_info\.json$/i.test(name) || /ship_data\.csv$/i.test(name)) continue;
-    // Skip .ship, .skin, .variant — they are checked elsewhere
+    // Ships/skins/variants are checked elsewhere
     if (ext === 'ship' || ext === 'skin' || ext === 'variant') continue;
+    // Known convention-loaded filenames
+    if (ORPHAN_EXEMPT_NAMES.has(name.toLowerCase())) continue;
+    // Known convention-loaded paths (library mods scan these directories)
+    if (ORPHAN_EXEMPT_PATH_PATTERNS.some(pat => pat.test(p))) continue;
 
-    const nameLower  = name.toLowerCase();
-    const baseLower  = nameLower.includes('.') ? nameLower.slice(0, nameLower.lastIndexOf('.')) : nameLower;
+    const nameLower = name.toLowerCase();
+    const baseLower = nameLower.includes('.') ? nameLower.slice(0, nameLower.lastIndexOf('.')) : nameLower;
 
-    // Is this file referenced anywhere?
-    const referencingOwners = refOwners.filter(o =>
-      o.path !== p && (o.raw.includes(nameLower) || o.raw.includes(baseLower))
+    // Does the base name look like a mod-specific ID?
+    // IDs contain underscores/hyphens and are ≥4 chars (e.g. "vbc_dualflak", "rat_abyssals").
+    // Generic words like "sounds", "terrain", "tips" do NOT qualify and would produce
+    // false-positive matches against common JSON keys.
+    const looksLikeId = baseLower.length >= 4 && /[_\-]/.test(baseLower);
+
+    // 1. Exact filename in corpus, or any corpus entry is a path ending in this filename
+    const refByName = referenceCorpus.has(nameLower)
+      || [...referenceCorpus].some(r => r.endsWith('/' + nameLower) || r.endsWith('\\' + nameLower));
+
+    // 2. Base name is a mod ID that appears as an exact value or as a path component
+    const refById = looksLikeId && (
+      referenceCorpus.has(baseLower)
+      || [...referenceCorpus].some(r => r.endsWith('/' + baseLower) || r.endsWith('.' + baseLower))
     );
-    const referenced = referenceCorpus.has(nameLower) || referenceCorpus.has(baseLower)
-      || [...referenceCorpus].some(r => r.includes(baseLower) || r.endsWith(nameLower))
-      || referencingOwners.length > 0;
+
+    // 3. Any parsed file's raw text explicitly references this file, with precise matching
+    //    to avoid false positives from short or common substrings.
+    const referencingOwners = refOwners.filter(o => {
+      if (o.path === p) return false;
+      // Full filename anywhere in the raw text
+      if (o.raw.includes(nameLower)) return true;
+      // Path-style reference: /basename.ext or \basename.ext
+      if (o.raw.includes('/' + baseLower + '.') || o.raw.includes('\\' + baseLower + '.')) return true;
+      // ID-style reference: "basename" as a quoted standalone value
+      if (looksLikeId && o.raw.includes('"' + baseLower + '"')) return true;
+      return false;
+    });
+
+    const referenced = refByName || refById || referencingOwners.length > 0;
 
     fileMetaByPath[p] = {
       orphan: !referenced,
-      owners: referencingOwners.map(o => ({
-        type: o.type,
-        id: o.id,
-        parentId: o.parentId
-      }))
+      owners: referencingOwners.map(o => ({ type:o.type, id:o.id, parentId:o.parentId }))
     };
 
     if (!referenced) {
-      const cat = categoriseFile(name);
+      const cat = categoriseFile(name, p);
       orphans.push({ path:p, name, ext, cat });
     }
   }
@@ -367,7 +506,7 @@ async function startAnalysis(files) {
   for (const v of variants) primaryPathMeta[v.path] = { orphan:false, owners:[{ type:'variant', id:v.shortName, parentId:v.refId }] };
   const allFiles = allPaths.map(p => {
     const name = p.split('/').pop();
-    return { path:p, name, size:byPath[p]?.size || 0, cat:categoriseFile(name), ...(fileMetaByPath[p] || primaryPathMeta[p] || { orphan:false, owners:[] }) };
+    return { path:p, name, size:byPath[p]?.size || 0, cat:categoriseFile(name, p), ...(fileMetaByPath[p] || primaryPathMeta[p] || { orphan:false, owners:[] }) };
   });
   const allFilesByCat = {};
   for (const f of allFiles) {
@@ -750,7 +889,12 @@ function renderFileInventory(allFilesByCat) {
 }
 
 function getExtClass(ext) {
-  const m = {ship:'tag-ship',skin:'tag-variant',variant:'tag-variant',wpn:'tag-weapon',wing:'tag-wing',csv:'tag-ok',json:'badge-info'};
+  const m = {
+    ship:'tag-ship', skin:'tag-variant', variant:'tag-variant',
+    wpn:'tag-weapon', proj:'tag-weapon', wing:'tag-wing',
+    csv:'tag-ok', json:'badge-info', version:'badge-info',
+    faction:'tag-ship', 'star_system':'badge-info', planet:'badge-info',
+  };
   return m[ext] || 'badge-muted';
 }
 
