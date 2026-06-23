@@ -1,0 +1,60 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Starsector Mod Integrity Checker</title>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo">⬡ STARSECTOR <span>MOD TOOLS</span></div>
+    <div class="header-sep"></div>
+    <div class="header-tag">INTEGRITY CHECKER v2.0</div>
+  </div>
+</header>
+
+<div id="app-upload">
+  <div class="hero">
+    <div class="hero-title">MOD <span>INTEGRITY</span> CHECKER</div>
+    <p class="hero-sub">Drop your Starsector mod folder below. Runs entirely in your browser — nothing is uploaded. Verifies ships, skins (grouped under their parent hull), variants (resolving both .ship and .skin references), CSV registration, orphaned files, and more.</p>
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-zone-icon">⬡</div>
+      <h2>DROP MOD FOLDER HERE</h2>
+      <p>Or click to browse — select the root folder of your mod</p>
+      <button class="btn btn-primary" type="button" onclick="document.getElementById('folder-input').click()">📂 Select Mod Folder</button>
+      <input type="file" id="folder-input" webkitdirectory multiple>
+    </div>
+  </div>
+</div>
+
+<div id="app-results" style="display:none">
+  <div class="main">
+    <div class="rescan-bar">
+      <div class="rescan-mod">Analysed: <span id="mod-name-display">—</span></div>
+      <button class="btn btn-sm" onclick="resetApp()">⟳ Scan Another Mod</button>
+      <button class="btn btn-sm btn-export" onclick="exportMod()" id="export-btn" title="Export selected files as a zip with modified mod_info.json">⬇ Export Mod ZIP</button>
+    </div>
+
+    <div id="progress-wrap" class="section" style="display:none">
+      <div class="progress-area">
+        <div class="progress-title">SCANNING MOD FILES</div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
+        <div class="progress-msg" id="progress-msg">Initialising...</div>
+      </div>
+    </div>
+
+    <div id="results-content" style="display:none">
+      <div class="summary-bar" id="summary-bar"></div>
+      <div id="sections-container"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
