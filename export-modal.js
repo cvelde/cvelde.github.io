@@ -58,10 +58,14 @@ async function exportMod() {
       }
     }
 
-    // Always include a modified mod_info.json
+    // Always include a modified mod_info.json (apply pending patches first, then watermark)
     if (modInfoPath && _byPath[modInfoPath]) {
+      let rawText = await readText(_byPath[modInfoPath]);
+      if (_pendingPatches[modInfoPath]?.length) {
+        for (const patch of _pendingPatches[modInfoPath]) rawText = patch.apply(rawText);
+      }
       let modInfo;
-      try { modInfo = parseStarsectorJson(await readText(_byPath[modInfoPath])); } catch(e) { modInfo = {}; }
+      try { modInfo = parseStarsectorJson(rawText); } catch(e) { modInfo = {}; }
       modInfo.name = (modInfo.name || 'Unknown Mod') + ' [SMT]';
       modInfo.version = (modInfo.version ? modInfo.version + '-' : '') + 'SMT';
       zip.file('mod_info.json', JSON.stringify(modInfo, null, 2));

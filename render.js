@@ -1,3 +1,109 @@
+// ── RENDER: Mod Info Panel ────────────────────────────────────────────────────
+function renderModInfoPanel(modInfo, declaredDeps, undeclaredDeps) {
+  // Meta row: author, id, game version
+  const metaRow = $('mod-meta-row');
+  if (modInfo) {
+    const parts = [];
+    if (modInfo.author) parts.push(`<span class="meta-item"><span class="meta-label">By</span> ${esc(modInfo.author)}</span>`);
+    if (modInfo.id)     parts.push(`<span class="meta-item"><span class="meta-label">ID</span><code>${esc(modInfo.id)}</code></span>`);
+    if (modInfo.gameVersion) parts.push(`<span class="meta-item"><span class="meta-label">Game</span> ${esc(modInfo.gameVersion)}</span>`);
+    if (parts.length) {
+      metaRow.innerHTML = `<div class="mod-meta">${parts.join('<span class="meta-sep">·</span>')}</div>`;
+      metaRow.style.display = '';
+    }
+  }
+
+  // Deps section
+  const depsEl = $('mod-deps-section');
+  if (!declaredDeps.length && !undeclaredDeps.length) { depsEl.style.display = 'none'; return; }
+
+  let html = '';
+
+  // ── Declared dependencies ────────────────────────────────────────────────
+  if (declaredDeps.length) {
+    html += `<div class="deps-group">
+      <div class="deps-label">Declared Dependencies <span class="deps-count">${declaredDeps.length}</span></div>
+      <div class="deps-chips">`;
+    for (const dep of declaredDeps) {
+      const tipLines = [
+        `ID: ${dep.id || '?'}`,
+        dep.version  ? `Required version: ${dep.version}` : null,
+        dep.required === false ? `Optional dependency` : `Required`,
+      ].filter(Boolean).join('\n');
+      html += `<span class="dep-chip dep-chip-ok" data-tip="${esc(tipLines)}">
+        <span class="dep-chip-name">${esc(dep.name || dep.id || '?')}</span>
+        ${dep.version ? `<span class="dep-chip-ver" data-tip="Required version">${esc(dep.version)}</span>` : ''}
+        ${dep.required === false ? `<span class="dep-chip-opt" data-tip="Optional — mod works without it">OPT</span>` : ''}
+      </span>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // ── Undeclared dependencies ───────────────────────────────────────────────
+  if (undeclaredDeps.length) {
+    html += `<div class="deps-group">
+      <div class="deps-label deps-label-warn">
+        ⚠ Undeclared Dependencies <span class="deps-count">${undeclaredDeps.length}</span>
+        <span class="deps-warn-note">— used in mod files but missing from mod_info.json, can cause unexpected crashes</span>
+      </div>
+      <div class="deps-chips">`;
+    for (const dep of undeclaredDeps) {
+      const prefixList = dep.usedPrefixes.join(', ');
+      const tipLines = [
+        `Mod ID: ${dep.modId}`,
+        dep.modName?.trim() && dep.modName.trim() !== dep.modId ? `Name: ${dep.modName.trim()}` : null,
+        dep.author ? `Author: ${dep.author}` : null,
+        dep.soft ? `Soft dependency — mod likely works without it,\n  but these features will be missing` : `Hard dependency — mod will likely crash without it`,
+        dep.detectedVia === 'file'
+          ? `Detected via: ${dep.detectionReason}`
+          : `Prefixes detected: ${prefixList}\nExample references:\n  ${dep.exampleIds.slice(0,3).join('\n  ')}`,
+      ].filter(Boolean).join('\n');
+      const softBadge = dep.soft
+        ? `<span class="dep-chip-soft" title="Soft dependency — mod works without it but loses these features">SOFT</span>`
+        : `<span class="dep-chip-hard" title="Hard dependency — mod will likely crash without it">HARD</span>`;
+      html += `<span class="dep-chip dep-chip-warn" data-tip="${esc(tipLines)}">
+        <span class="dep-chip-name">${esc(dep.modName?.trim() || dep.modId)}</span>
+        ${prefixList ? `<span class="dep-chip-prefix" title="Shorthand prefix(es) found in mod files">${esc(prefixList)}</span>` : ''}
+        ${softBadge}
+      </span>`;
+    }
+    html += `</div>`;
+    if (_modInfoPath) {
+      html += `<button class="btn dep-fix-btn" onclick="queueAddMissingDeps()">⚙ Add Missing Dependencies to mod_info.json</button>`;
+    }
+    html += `</div>`;
+  }
+
+  depsEl.innerHTML = html;
+  depsEl.style.display = '';
+}
+
+function queueAddMissingDeps() {
+  if (!_modInfoPath || !_undeclaredDepData.length) return;
+  const depsToAdd = _undeclaredDepData.map(d => ({ id: d.modId, name: (d.modName?.trim() || d.modId) }));
+  const desc = `Add ${depsToAdd.length} missing dep${depsToAdd.length > 1 ? 'endencies' : 'endency'} to mod_info.json`;
+  if (!_pendingPatches[_modInfoPath]) _pendingPatches[_modInfoPath] = [];
+  if (!_pendingPatches[_modInfoPath].some(p => p.description === desc)) {
+    _pendingPatches[_modInfoPath].push({ description: desc, apply: text => {
+      let obj;
+      try { obj = parseStarsectorJson(text); } catch(e) { return text; }
+      if (!Array.isArray(obj.dependencies)) obj.dependencies = [];
+      const existingIds = new Set(obj.dependencies.map(d => (d.id || '').toLowerCase()));
+      for (const dep of depsToAdd) {
+        if (!existingIds.has(dep.id.toLowerCase())) obj.dependencies.push(dep);
+      }
+      return JSON.stringify(obj, null, 2);
+    }});
+    addChangeEntry('🔗', desc, _modInfoPath);
+  }
+  document.querySelectorAll('.dep-fix-btn').forEach(b => {
+    b.disabled = true;
+    b.textContent = `✓ Queued — will be applied on export`;
+    b.style.color = 'var(--green)';
+    b.style.borderColor = 'rgba(61,214,140,.4)';
+  });
+}
+
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function renderResults(d) {
   const { ships, skins, variants, orphans, issues, csvById, csvShipsNotFound, allFilesByCat, allFiles, modInfo, orphanBytes, orphanPercent } = d;
@@ -344,7 +450,11 @@ function renderFileInventory(allFilesByCat) {
               <span class="chip-ext ${getExtClass(ext)}">.${ext||'?'}</span>
               <span>${esc(f.name)}</span>
               <span class="td-tag badge-muted">${formatBytes(f.size || 0)}</span>
-              ${f.orphan ? '<span class="td-tag tag-warn">orphan</span>' : ''}
+              ${f.orphan && f.orphanNote
+                ? `<span class="td-tag tag-warn" title="${esc(f.orphanNote.note)}">orphan</span><span class="td-tag tag-missing" title="${esc(f.orphanNote.note)}" style="cursor:help">${esc(f.orphanNote.tag)}</span>`
+                : f.orphan && f.cat?.id === 'other'
+                  ? `<span class="td-tag tag-warn">orphan</span><span class="td-tag badge-muted" title="File type is unrecognised — purpose unknown, removal risk cannot be assessed" style="cursor:help">? UNKNOWN</span>`
+                  : f.orphan ? '<span class="td-tag tag-warn">orphan</span>' : ''}
               ${ownerText ? `<span class="td-tag ${f.orphan?'tag-warn':'tag-ok'}" title="${esc(ownerText)}">${esc(ownerText)}</span>` : ''}
               <span class="risk-badge td-tag" style="display:none"></span>
             </div>`;
@@ -413,22 +523,39 @@ function filterTable(tableId, search) {
   const tbl = $(tableId);
   if (!tbl) return;
   const q = search.toLowerCase();
-  if (q && !tbl._expanded) expandCollapsed(tableId);
+  const sf = tbl._statusFilter;
+  if ((q || (sf && sf !== 'all')) && !tbl._expanded) expandCollapsed(tableId);
   let vis = 0;
-  for (const tr of tbl.tBodies[0].rows) {
+  const rows = Array.from(tbl.tBodies[0].rows);
+
+  // First pass: show/hide data rows, track visibility per group header
+  let currentHeader = null;
+  let headerHasVisible = false;
+  const headerVisibility = new Map(); // header tr → hasAnyVisibleChild
+
+  for (const tr of rows) {
     if (tr.classList.contains('var-group-header')) {
-      tr.style.display = tr.classList.contains('is-collapsed-entry') && !tbl._expanded ? 'none' : '';
+      if (currentHeader) headerVisibility.set(currentHeader, headerHasVisible);
+      currentHeader = tr;
+      headerHasVisible = false;
       continue;
     }
     const match = !q || tr.dataset.name?.includes(q) || tr.textContent.toLowerCase().includes(q);
-    const sf = tbl._statusFilter;
-    const statusMatch = !sf || sf==='all' || tr.dataset.status===sf;
+    const statusMatch = !sf || sf === 'all' || tr.dataset.status === sf;
     const collapsed = tr.classList.contains('is-collapsed-entry') && !tbl._expanded;
     const show = match && statusMatch && !collapsed;
     tr.style.display = show ? '' : 'none';
-    if (show) vis++;
+    if (show) { vis++; headerHasVisible = true; }
   }
-  const c = $(tableId+'-count');
+  if (currentHeader) headerVisibility.set(currentHeader, headerHasVisible);
+
+  // Second pass: hide group headers that have no visible children
+  for (const [headerTr, hasVisible] of headerVisibility) {
+    const collapsedHeader = headerTr.classList.contains('is-collapsed-entry') && !tbl._expanded;
+    headerTr.style.display = (hasVisible && !collapsedHeader) ? '' : 'none';
+  }
+
+  const c = $(tableId + '-count');
   if (c) c.textContent = vis + ' shown';
 }
 

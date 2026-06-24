@@ -33,10 +33,16 @@
 
 <div id="app-results" style="display:none">
   <div class="main">
-    <div class="rescan-bar">
-      <div class="rescan-mod">Analysed: <span id="mod-name-display">—</span></div>
-      <button class="btn btn-sm" onclick="resetApp()">⟳ Scan Another Mod</button>
-      <button class="btn btn-sm btn-export" onclick="exportMod()" id="header-export-btn" title="Export selected files as a ZIP">⬇ Export Mod ZIP</button>
+    <div class="rescan-bar" id="rescan-bar">
+      <div class="rescan-bar-top">
+        <div class="rescan-mod">Analysed: <span id="mod-name-display">—</span></div>
+        <div class="rescan-actions">
+          <button class="btn btn-sm" onclick="resetApp()">⟳ Scan Another Mod</button>
+          <button class="btn btn-sm btn-export" onclick="exportMod()" id="header-export-btn" title="Export selected files as a ZIP">⬇ Export Mod ZIP</button>
+        </div>
+      </div>
+      <div id="mod-meta-row" style="display:none"></div>
+      <div id="mod-deps-section" style="display:none"></div>
     </div>
 
     <div id="progress-wrap" class="section" style="display:none">

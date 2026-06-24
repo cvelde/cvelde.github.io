@@ -14,6 +14,8 @@ let _changeLog = [];          // [{icon, title, path, id}]
 let _wpnPathById = {};        // weaponId (lowercase) → .wpn file path
 let _currentModal = null;     // { filePath, activeRisks, allFixes, onProceed }
 let _shipFilePathToHullId = {};// .ship file path → hull ID (for reverse sync)
+let _modInfoPath = '';         // path to mod_info.json (for dep patching)
+let _undeclaredDepData = [];   // [{modId, modName, author, usedPrefixes, exampleIds}] – undeclared foreign deps
 
 function resetApp() {
   Object.values(_spriteUrlCache).forEach(u => URL.revokeObjectURL(u));
@@ -29,6 +31,8 @@ function resetApp() {
   _wpnPathById = {};
   _currentModal = null;
   _shipFilePathToHullId = {};
+  _modInfoPath = '';
+  _undeclaredDepData = [];
   $('app-upload').style.display = '';
   $('app-results').style.display = 'none';
   $('folder-input').value = '';

@@ -151,11 +151,47 @@ tr:hover td{background:rgba(255,255,255,.02)}
 /* EMPTY STATE */
 .empty{padding:32px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px}
 
-/* SCAN AGAIN */
-.rescan-bar{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding:14px 20px;background:var(--panel);border:1px solid var(--border);border-radius:6px}
-.btn-export{color:var(--green);border-color:var(--green);margin-left:auto}.btn-export:hover{background:rgba(61,214,140,.08)}
+/* SCAN AGAIN / MOD INFO PANEL */
+.rescan-bar{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;padding:14px 20px;background:var(--panel);border:1px solid var(--border);border-radius:6px}
+.rescan-bar-top{display:flex;align-items:center;gap:16px}
+.rescan-actions{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.btn-export{color:var(--green);border-color:var(--green)}.btn-export:hover{background:rgba(61,214,140,.08)}
 .rescan-mod{font-family:var(--head);font-size:10px;color:#fff;letter-spacing:2px;text-transform:uppercase;flex:1}
 .rescan-mod span{color:var(--gold)}
+
+/* MOD META ROW */
+.mod-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--text2);border-top:1px solid var(--border);padding-top:10px}
+.meta-item{display:flex;align-items:center;gap:4px}
+.meta-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.meta-item code{font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.2);padding:1px 5px;border-radius:3px}
+.meta-sep{color:var(--border2);font-size:14px;line-height:1;margin:0 2px}
+
+/* DEP SECTION */
+.mod-deps-section{border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:10px}
+.deps-group{display:flex;flex-direction:column;gap:6px}
+.deps-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:6px}
+.deps-label-warn{color:var(--amber)}
+.deps-count{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid var(--border2)}
+.deps-warn-note{font-size:10px;color:var(--amber);opacity:.8;font-family:var(--sans);text-transform:none;letter-spacing:0;margin-left:4px}
+.deps-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+/* DEP CHIPS */
+.dep-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:4px;font-size:12px;cursor:help;position:relative;border:1px solid}
+.dep-chip-ok{background:rgba(74,158,255,.07);border-color:rgba(74,158,255,.25);color:var(--text)}
+.dep-chip-ok:hover{background:rgba(74,158,255,.13);border-color:rgba(74,158,255,.4)}
+.dep-chip-warn{background:rgba(245,166,35,.07);border-color:rgba(245,166,35,.3);color:var(--text)}
+.dep-chip-warn:hover{background:rgba(245,166,35,.13);border-color:rgba(245,166,35,.5)}
+.dep-chip-name{font-weight:500;color:inherit}
+.dep-chip-ver{font-family:var(--mono);font-size:10px;color:var(--accent);background:rgba(74,158,255,.12);border:1px solid rgba(74,158,255,.2);padding:0 4px;border-radius:2px}
+.dep-chip-opt{font-family:var(--mono);font-size:9px;color:var(--text3);border:1px solid var(--border2);padding:0 3px;border-radius:2px;text-transform:uppercase}
+.dep-chip-prefix{font-family:var(--mono);font-size:10px;color:var(--amber);background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);padding:0 4px;border-radius:2px}
+.dep-chip-id{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.dep-chip-hard{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--red);background:rgba(224,85,85,.1);border:1px solid rgba(224,85,85,.25);padding:0 4px;border-radius:2px;cursor:help;text-transform:uppercase;letter-spacing:.3px}
+.dep-chip-soft{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--text3);background:rgba(255,255,255,.04);border:1px solid var(--border2);padding:0 4px;border-radius:2px;cursor:help;text-transform:uppercase;letter-spacing:.3px}
+.dep-fix-btn{margin-top:2px;color:var(--amber);border-color:rgba(245,166,35,.4);font-size:11px;padding:4px 10px}.dep-fix-btn:hover{background:rgba(245,166,35,.08);border-color:var(--amber)}
+
+/* DEP CHIP TOOLTIP - richer than data-tip, done via title for now but using a custom approach */
+.dep-chip[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:0;transform:none;background:#1a2030;border:1px solid var(--border2);color:var(--text);font-size:11px;padding:6px 10px;border-radius:4px;white-space:pre;z-index:200;font-family:var(--mono);line-height:1.7;min-width:200px;max-width:340px;pointer-events:none}
 
 /* TOOLTIP */
 [data-tip]{position:relative;cursor:help}

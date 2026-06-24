@@ -84,6 +84,130 @@ const FILE_CATEGORIES = [
     desc:'Files not matching any known category' }
 ];
 
+// ── KNOWN ORPHAN EXPLANATIONS ─────────────────────────────────────────────────
+// Files that ARE correctly orphaned but deserve a specific explanation rather
+// than a generic "unreferenced" label.
+const KNOWN_ORPHAN_NOTES = [
+  {
+    tag: 'DYNASECTOR',
+    note: 'DynaSector integration file — DynaSector is a discontinued mod; this file is a leftover and can be safely deleted',
+    filePatterns: [/^weapon_categories\.csv$/i, /^ship_roles\.csv$/i, /^fighter_wings\.csv$/i],
+  },
+];
+
+function getOrphanNote(name) {
+  for (const entry of KNOWN_ORPHAN_NOTES) {
+    if (entry.filePatterns.some(rx => rx.test(name))) return { tag: entry.tag, note: entry.note };
+  }
+  return null;
+}
+
+// ── LIBRARY MOD FILE DETECTORS ───────────────────────────────────────────────
+// Each entry: modId (as declared in dependencies), modName, soft (true = optional integration),
+// detectionReason, and file/path patterns whose presence implies the dependency.
+const LIBRARY_FILE_DETECTORS = [
+  {
+    modId: 'shaderLib',
+    modName: 'GraphicsLib',
+    author: 'nicke530',
+    soft: false,
+    detectionReason: 'GraphicsLib shader/engine-style/texture/light config files present',
+    filePatterns:   [/^engine_styles\.json$/i, /^hull_styles\.json$/i, /^magictrail_data\.csv$/i],
+    pathPatterns:   [/_texture_data\.csv$/i, /_lights?_data\.csv$/i],
+  },
+  {
+    modId: 'lunalib',
+    modName: 'LunaLib',
+    author: 'Lukas22041',
+    soft: true,
+    detectionReason: 'LunaLib settings config file present — provides optional in-game settings UI',
+    filePatterns:   [/^lunasettingsconfig\.json$/i, /^lunasettings\.json$/i, /^lunasettings\.csv$/i],
+    pathPatterns:   [],
+  },
+  {
+    modId: 'MagicLib',
+    modName: 'MagicLib',
+    author: 'Tartiflette & Wisp',
+    soft: false,
+    detectionReason: 'MagicLib bounty/achievement config files present',
+    filePatterns:   [/^magicbounty_data\.json$/i, /^magicbounty_intel\.json$/i, /^magic_achievements\.csv$/i, /^magic_paintjobs\.csv$/i, /^magic_weapon_paintjobs\.csv$/i],
+    pathPatterns:   [/\/config\/MagicBounty\//i, /\/config\/paintjobs\//i],
+  },
+  {
+    modId: 'nexerelin',
+    modName: 'Nexerelin',
+    author: 'Histidine',
+    soft: true,
+    detectionReason: 'Nexerelin faction-warfare/diplomacy config files present — mod likely works without Nexerelin but loses these features',
+    filePatterns:   [/^mod_factions\.csv$/i, /^customstarts\.json$/i, /^character_backgrounds\.csv$/i],
+    // prism/ is Nexerelin's Prism Freeport sub-feature, not a separate mod
+    pathPatterns:   [/\/config\/exerelinFactionConfig\//i, /\/config\/takenoprisonersFactionConfig\//i, /\/config\/exerelin\//i, /\/config\/prism\//i],
+  },
+  {
+    modId: 'Starsector Chatter',
+    modName: 'Chatter',
+    author: 'Sundog',
+    soft: true,
+    detectionReason: 'Chatter dialogue/character files present — mod works without Chatter but won\'t have in-combat voice lines',
+    filePatterns:   [/^excluded_hulls\.csv$/i],
+    pathPatterns:   [/\/chatter\/characters\//i, /\/data\/config\/chatter\//i],
+  },
+  {
+    modId: 'version_checker',
+    modName: 'Version Checker',
+    author: 'DesperatePete / amoebas',
+    soft: true,
+    detectionReason: '.version file present — mod works without Version Checker but won\'t report update notifications',
+    filePatterns:   [/\.version$/i, /^version_files\.csv$/i],
+    pathPatterns:   [/\/config\/version\//i],
+  },
+  {
+    modId: 'IndEvo',
+    modName: 'Industrial Evolution',
+    author: 'Boggled',
+    soft: true,
+    detectionReason: 'Industrial Evolution config files present',
+    filePatterns:   [],
+    pathPatterns:   [/\/config\/indEvo\//i],
+  },
+  {
+    modId: 'secondInCommand',
+    modName: 'Second-in-Command',
+    author: 'qcwxezda',
+    soft: true,
+    detectionReason: 'Second-in-Command config files present',
+    filePatterns:   [],
+    pathPatterns:   [/\/config\/secondInCommand\//i],
+  },
+  {
+    modId: 'ExiledSpace',
+    modName: 'Exiled Space',
+    author: 'Leviathan',
+    soft: true,
+    detectionReason: 'Exiled Space config files present',
+    filePatterns:   [],
+    pathPatterns:   [/\/config\/ExiledSpace\//i],
+  },
+  {
+    modId: 'timid_commissioned_hull_mods',
+    modName: 'Commissioned Crews',
+    author: 'Techpriest',
+    soft: true,
+    detectionReason: 'Commissioned Crews faction commission file present (data/config/CommissionBonus/) — adds hullmods tied to player commission faction',
+    filePatterns:   [/^TechpriestCommission\.csv$/i],
+    pathPatterns:   [/\/config\/CommissionBonus\//i],
+  },
+  {
+    modId: 'vayramerged',
+    modName: 'Vayra\'s Ship Pack / Sector',
+    author: 'Vayra',
+    soft: true,
+    detectionReason: 'Vayra bounty integration file present (data/config/vayraBounties/) — registers factions with Vayra\'s player bounty board',
+    filePatterns:   [/^player_bounty_factions\.csv$/i],
+    pathPatterns:   [/\/config\/vayraBounties\//i],
+  },
+];
+
 // Extensions whose files the game engine loads by directory scan — tracing
 // every reference to them is impractical, so skip them in the orphan check.
 const ORPHAN_EXEMPT_EXTS = new Set(['java','class','jar','kt','groovy','ogg','wav','mp3','faction','star_system','planet','txt','md','strings']);
@@ -92,24 +216,43 @@ const ORPHAN_EXEMPT_EXTS = new Set(['java','class','jar','kt','groovy','ogg','wa
 // convention (e.g. GraphicsLib scans for engine_styles.json in every mod).
 // These are never orphaned even if nothing in the mod JSON references them.
 const ORPHAN_EXEMPT_NAMES = new Set([
+  // Core ship/weapon/wing tables
   'ship_data.csv','weapon_data.csv','wing_data.csv','fighter_data.csv',
-  'abilities.csv','hullmods.csv','descriptions.csv','bar_events.csv',
+  // Hullmods — game loads hull_mods.csv from data/hullmods/ in every mod
+  'hullmods.csv','hull_mods.csv',
+  // Ship systems — game loads ship_systems.csv from data/shipsystems/ in every mod
+  'ship_systems.csv',
+  // Campaign scripting — game appends rules.csv from every mod's data/campaign/
+  'rules.csv',
+  // Simulator opponents — game loads sim_opponents.csv / sim_opponents_dev.csv
+  'sim_opponents.csv','sim_opponents_dev.csv',
+  // Title screen — game loads title_screen_variants.csv from data/config/
+  'title_screen_variants.csv',
+  // Standard campaign/config tables
+  'abilities.csv','descriptions.csv','bar_events.csv',
   'person_missions.csv','mission_list.csv','industries.csv',
   'market_conditions.csv','submarkets.csv','special_items.csv',
-  'sounds.json','planets.json','custom_entities.json','engine_styles.json',
-  'hull_styles.json','tag_data.json','battle_objectives.json','contact_tag_data.json',
-  'lunasettingsconfig.json','mod_info.json','settings.json','modsettings.json',
-  'version_files.csv','magic_achievements.csv','magictrail_data.csv',
-  'aptitude_data.csv','skill_data.csv','default_ship_roles.json',
-  'default_ranks.json','pings.json','terrain.json','commands.csv',
-  'command_listeners.csv','factions.csv','mod_factions.csv',
-  'customstarts.json','character_backgrounds.csv','excluded_hulls.csv',
   'drop_groups.csv','planet_gen_data.csv','star_gen_data.csv',
   'salvage_entity_gen_data.csv','condition_gen_data.csv',
-  'magicbounty_data.json','magicbounty_intel.json',
-  'sc_skills.csv','sc_aptitudes.csv','scaptitudes.csv','scskills.csv',
+  'commodities.csv','reports.csv',
+  'factions.csv','mod_factions.csv','commands.csv','command_listeners.csv',
+  'customstarts.json','character_backgrounds.csv','excluded_hulls.csv',
+  'aptitude_data.csv','skill_data.csv',
   'printing_whitelist.csv','reverse_engineering_whitelist.csv',
   'industry_data.csv','market_data.csv',
+  'sc_skills.csv','sc_aptitudes.csv','scaptitudes.csv','scskills.csv',
+  // Campaign world/star-system definition files
+  'starmap.json','channels.json','events.json',
+  // Standard JSON config files
+  'sounds.json','planets.json','custom_entities.json','engine_styles.json',
+  'hull_styles.json','tag_data.json','battle_objectives.json','contact_tag_data.json',
+  'mod_info.json','settings.json','modsettings.json',
+  'default_ship_roles.json','default_ranks.json','pings.json','terrain.json',
+  // Library-specific convention files
+  'lunasettingsconfig.json',
+  'version_files.csv',
+  'magic_achievements.csv','magictrail_data.csv',
+  'magicbounty_data.json','magicbounty_intel.json',
 ]);
 
 // Path sub-patterns for files loaded by directory scanning in library mods.
@@ -127,16 +270,24 @@ const ORPHAN_EXEMPT_PATH_PATTERNS = [
   /\/data\/strings\//i,
   /\/data\/lights\//i,
   /\/data\/missions\//i,
+  /\/data\/campaign\/econ\//i,
   /\/data\/campaign\/procgen\//i,
   /\/data\/campaign\/frontiers\//i,
   /\/data\/characters\//i,
   /\/data\/config\/MagicBounty/i,
+  /\/data\/config\/paintjobs\//i,
   /\/data\/campaign\/rulecontent\//i,
   /\/data\/campaign\/rules\//i,
   /\/data\/scripts\//i,
   /_texture_data\.csv$/i,
   /_lights?_data\.csv$/i,
   /\.version$/i,
+  // Prism Freeport integration folder (part of Nexerelin — ships/factions opt-in to the special market)
+  /\/data\/config\/prism\//i,
+  // Commissioned Crews faction-hullmod integration
+  /\/data\/config\/CommissionBonus\//i,
+  // Vayra's bounty board faction registration
+  /\/data\/config\/vayraBounties\//i,
 ];
 
 function categoriseFile(name, path = '') {

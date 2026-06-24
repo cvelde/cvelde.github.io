@@ -101,6 +101,11 @@ async function startAnalysis(files) {
   let modInfo = null;
   if (modInfoPath) { try { modInfo = parseStarsectorJson(await readText(byPath[modInfoPath])); } catch(e) {} }
   if (modInfo?.name) $('mod-name-display').textContent = modInfo.name + (modInfo.version ? ` v${modInfo.version}` : '');
+  _modInfoPath = modInfoPath || '';
+
+  // Load mod prefix registry for dependency analysis
+  let modPrefixRegistry = {};
+  try { const r = await fetch('./mod-prefixes.json'); if (r.ok) modPrefixRegistry = await r.json(); } catch(e) {}
 
   setProgress(10, 'Finding ship_data.csv...');
   const csvPath = allPaths.find(p => /ship_data\.csv$/i.test(p));
@@ -356,15 +361,17 @@ async function startAnalysis(files) {
     });
 
     const referenced = refByName || refById || referencingOwners.length > 0;
+    const orphanNote = referenced ? null : getOrphanNote(name);
 
     fileMetaByPath[p] = {
       orphan: !referenced,
+      orphanNote,
       owners: referencingOwners.map(o => ({ type:o.type, id:o.id, parentId:o.parentId }))
     };
 
     if (!referenced) {
       const cat = categoriseFile(name, p);
-      orphans.push({ path:p, name, ext, cat });
+      orphans.push({ path:p, name, ext, cat, orphanNote });
     }
   }
   _allOrphanPaths = new Set(orphans.map(o => o.path));
@@ -392,6 +399,99 @@ async function startAnalysis(files) {
   const orphanBytes = allFiles.filter(f => f.orphan).reduce((sum, f) => sum + (f.size || 0), 0);
   const orphanPercent = allFileBytes ? (orphanBytes / allFileBytes) * 100 : 0;
 
+  // ── Mod dependency analysis ───────────────────────────────────────────────
+  setProgress(91, 'Analysing mod dependencies...');
+
+  // Build prefix → mod registry lookup
+  const prefixToMod = {};
+  for (const [modId, info] of Object.entries(modPrefixRegistry)) {
+    for (const prefix of (info.prefixes || [])) {
+      const pl = prefix.toLowerCase();
+      if (pl) prefixToMod[pl] = { modId, modName: (info.modName || '').trim(), author: info.author || '', prefixes: info.prefixes };
+    }
+  }
+
+  // Determine the mod's own prefixes from hull IDs
+  const ownPrefixes = new Set();
+  for (const s of ships) { const p = s.hullId.split('_')[0].toLowerCase(); if (p) ownPrefixes.add(p); }
+  for (const sk of skins) { const p = sk.skinHullId.split('_')[0].toLowerCase(); if (p) ownPrefixes.add(p); }
+  if (modInfo?.id) ownPrefixes.add(modInfo.id.toLowerCase());
+
+  // Collect all IDs referenced in ship/skin/variant data that cross into other mods
+  const referencedIds = new Set();
+  const addRefId = id => { if (id && typeof id === 'string' && id.includes('_')) referencedIds.add(id); };
+  for (const s of ships) {
+    if (s.data?._parseError) continue;
+    addRefId(s.data?.systemId);
+    (s.data?.builtInMods || []).forEach(addRefId);
+    (s.data?.builtInWings || []).forEach(addRefId);
+    if (s.data?.builtInWeapons) Object.values(s.data.builtInWeapons).forEach(addRefId);
+  }
+  for (const sk of skins) {
+    if (sk.data?._parseError) continue;
+    addRefId(sk.data?.systemId);
+    (sk.data?.addBuiltInMods || []).forEach(addRefId);
+    (sk.data?.removeBuiltInMods || []).forEach(addRefId);
+    if (sk.data?.builtInWeapons) Object.values(sk.data.builtInWeapons).forEach(addRefId);
+  }
+  for (const v of variants) {
+    if (v.data?._parseError) continue;
+    (v.data?.wings || []).forEach(addRefId);
+    if (v.data?.weaponGroups) {
+      for (const g of v.data.weaponGroups) {
+        if (g.weapons) Object.values(g.weapons).forEach(addRefId);
+      }
+    }
+  }
+
+  // Map foreign prefixes → mod info
+  const usedForeignMods = {}; // modId → { modName, author, usedPrefixes: Set, exampleIds: [] }
+  for (const id of referencedIds) {
+    const prefix = id.split('_')[0].toLowerCase();
+    if (!prefix || ownPrefixes.has(prefix)) continue;
+    const entry = prefixToMod[prefix];
+    if (!entry) continue;
+    const key = entry.modId;
+    if (!usedForeignMods[key]) usedForeignMods[key] = { ...entry, usedPrefixes: new Set(), exampleIds: [] };
+    usedForeignMods[key].usedPrefixes.add(prefix);
+    if (usedForeignMods[key].exampleIds.length < 5) usedForeignMods[key].exampleIds.push(id);
+  }
+
+  // Split prefix-based findings into declared vs undeclared
+  const declaredDeps = modInfo?.dependencies || [];
+  const declaredDepIds = new Set(declaredDeps.map(d => (d.id || '').toLowerCase()));
+  const undeclaredDeps = [];
+  for (const [modId, info] of Object.entries(usedForeignMods)) {
+    if (!declaredDepIds.has(modId.toLowerCase())) {
+      undeclaredDeps.push({ modId, ...info, usedPrefixes: [...info.usedPrefixes], soft: false, detectedVia: 'prefix' });
+    }
+  }
+
+  // File-presence based library detection
+  for (const detector of LIBRARY_FILE_DETECTORS) {
+    if (declaredDepIds.has(detector.modId.toLowerCase())) continue;
+    const hit = allPaths.find(p => {
+      const name = p.split('/').pop();
+      return detector.filePatterns.some(rx => rx.test(name))
+          || detector.pathPatterns.some(rx => rx.test(p));
+    });
+    if (!hit) continue;
+    // Avoid duplicate if prefix detection already found this mod
+    if (undeclaredDeps.some(d => d.modId.toLowerCase() === detector.modId.toLowerCase())) continue;
+    undeclaredDeps.push({
+      modId: detector.modId,
+      modName: detector.modName,
+      author: detector.author,
+      usedPrefixes: [],
+      exampleIds: [hit.split('/').pop()],
+      soft: detector.soft,
+      detectedVia: 'file',
+      detectionReason: detector.detectionReason,
+    });
+  }
+
+  _undeclaredDepData = undeclaredDeps;
+
   // ── Issue list ────────────────────────────────────────────────────────────
   setProgress(92, 'Checking for issues...');
   const issues = [];
@@ -415,10 +515,15 @@ async function startAnalysis(files) {
   if (variantParseErr.length) issues.push({ severity:'err',  msg:`${variantParseErr.length} variant file(s) have JSON parse errors`, detail:'These files are corrupt.' });
   if (csvShipsNotFound.length)issues.push({ severity:'warn', msg:`${csvShipsNotFound.length} CSV row(s) have no matching .ship or .skin file`, detail:'These CSV entries point to missing hull files.' });
   if (orphans.length)         issues.push({ severity:'warn', msg:`${orphans.length} file(s) appear to be unreferenced (orphaned)`, detail:'These files are not referenced by any parsed ship, skin, variant, or CSV.' });
+  const hardUndeclared = undeclaredDeps.filter(d => !d.soft);
+  const softUndeclared = undeclaredDeps.filter(d => d.soft);
+  if (hardUndeclared.length) issues.push({ severity:'err',  msg:`${hardUndeclared.length} undeclared hard dependenc${hardUndeclared.length>1?'ies':'y'} — likely to crash`, detail:`Missing from mod_info.json: ${hardUndeclared.map(d=>d.modName?.trim()||d.modId).join(', ')}` });
+  if (softUndeclared.length) issues.push({ severity:'warn', msg:`${softUndeclared.length} undeclared soft dependenc${softUndeclared.length>1?'ies':'y'} detected`, detail:`Optional integrations not declared in mod_info.json: ${softUndeclared.map(d=>d.modName?.trim()||d.modId).join(', ')}` });
 
   setProgress(98, 'Rendering results...');
   await sleep(40);
 
+  renderModInfoPanel(modInfo, declaredDeps, undeclaredDeps);
   renderResults({ ships, skins, variants, orphans, issues, csvById, csvShipsNotFound, allFilesByCat, allFiles, modInfo, orphanBytes, orphanPercent });
 
   setProgress(100, 'Done!');
