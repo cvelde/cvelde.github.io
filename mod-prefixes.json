@@ -1,0 +1,1169 @@
+﻿{
+    "EndlessSky":  {
+                       "modName":  " Endless Sky",
+                       "author":  "1010todd",
+                       "prefixes":  [
+                                        "EndlessSky"
+                                    ]
+                   },
+    "DisassembleReassemble":  {
+                                  "modName":  "(KIND STRANGER) Disassemble Reassemble",
+                                  "author":  "AxleMC131",
+                                  "prefixes":  [
+                                                   "dara"
+                                               ]
+                              },
+    "TraverserDesignBureau":  {
+                                  "modName":  "[Traverser Design Bureau]",
+                                  "author":  "\n Design/Production: Coldstream [Creator]  \nTechnical Guidance: AnyIDElse    影之光 野鸦之神[贴图] \nSpecial Thanks: 2020拜拜啦  烤乳猪  Greatfhgbj  ZeroXenon  Ykaris  homejerry99  CVB～Taiho.0  鸽子  幻音以及群内一大群的水友提供的贴图和帮助",
+                                  "prefixes":  [
+                                                   "TDB"
+                                               ]
+                              },
+    "1 - VIC recombobulation":  {
+                                    "modName":  "1 - VIC recombobulation",
+                                    "author":  "that one guy",
+                                    "prefixes":  [
+                                                     "vic"
+                                                 ]
+                                },
+    "Able Avionics":  {
+                          "modName":  "Able Avionics",
+                          "author":  "that one guy",
+                          "prefixes":  [
+                                           "diableavionics"
+                                       ]
+                      },
+    "aivon_republic":  {
+                           "modName":  "Aivon Republic",
+                           "author":  "Cann",
+                           "prefixes":  [
+                                            "aiv"
+                                        ]
+                       },
+    "alkemia-armoury":  {
+                            "modName":  "Alkemia Armoury",
+                            "author":  "Frederoo",
+                            "prefixes":  [
+                                             "alkemia",
+                                             "krieg"
+                                         ]
+                        },
+    "all_the_domain_drones+NewDrones":  {
+                                            "modName":  "All the Domain Drones+ New Drones",
+                                            "author":  "Nathan",
+                                            "prefixes":  [
+                                                             "dom+ms",
+                                                             "dom+dev",
+                                                             "dom+labourer",
+                                                             "dom+fencer",
+                                                             "dom+station"
+                                                         ]
+                                        },
+    "A_S-F":  {
+                  "modName":  "Amazigh\u0027s Ship Foundry",
+                  "author":  "Amazigh",
+                  "prefixes":  [
+                                   "A"
+                               ]
+              },
+    "Cryo_but_better":  {
+                            "modName":  "AoTD - Cryosleeper Options",
+                            "author":  "Kaysaar",
+                            "prefixes":  [
+
+                                         ]
+                        },
+    "aod_vos":  {
+                    "modName":  "AoTD - Virtue Of Society",
+                    "author":  "Kaysaar",
+                    "prefixes":  [
+
+                                 ]
+                },
+    "aotd_vok":  {
+                     "modName":  "AoTD- Vaults of Knowledge ",
+                     "author":  "Kaysaar",
+                     "prefixes":  [
+                                      "coronal"
+                                  ]
+                 },
+    "apex_design":  {
+                        "modName":  "Apex Design Collective",
+                        "author":  "theDragn",
+                        "prefixes":  [
+                                         "apex"
+                                     ]
+                    },
+    "apocrita_association":  {
+                                 "modName":  "Apocrita Association",
+                                 "author":  "Big Bee.png",
+                                 "prefixes":  [
+                                                  "bee"
+                                              ]
+                             },
+    "ApproLight":  {
+                       "modName":  "Appro-Light",
+                       "author":  "Author:Originem. \nArtist: Monde, BZOne, Shadow Light, Ura. \nSpecial Thanks:MesoTronik, Nia, APuJun, Tartifilette, lili, FAX \nOpenGL support:Dark.Revenant \nUnofficial Translation by MrMagolor",
+                       "prefixes":  [
+                                        "AL"
+                                    ]
+                   },
+    "ApproLightPlus":  {
+                           "modName":  "Appro-Light Plus",
+                           "author":  "Author:Originem. \nArtist:Laomi, BZOne\nArt Assistants: RUA, Shadow-Light, Mimeio \n\nParts of ship design:Kaoruzhu. \n\nSupport: MesoTronik \n\nUnofficial Translation by MrMagolor",
+                           "prefixes":  [
+                                            "AL",
+                                            "Knight"
+                                        ]
+                       },
+    "arc":  {
+                "modName":  "ARC",
+                "author":  "superyuuki, Raycrasher",
+                "prefixes":  [
+                                 "arc"
+                             ]
+            },
+    "arismpm":  {
+                    "modName":  "ARIS Refit Ship Pack",
+                    "author":  "",
+                    "prefixes":  [
+                                     "arismpm"
+                                 ]
+                },
+    "raccoonarms":  {
+                        "modName":  "Arsenal Expansion",
+                        "author":  "Inventor Raccoon",
+                        "prefixes":  [
+                                         "ae"
+                                     ]
+                    },
+    "arthrships":  {
+                       "modName":  "Arthr\u0027s Ships n Shit",
+                       "author":  "Arthr",
+                       "prefixes":  [
+                                        "ass"
+                                    ]
+                   },
+    "astroidships":  {
+                         "modName":  "asteroid ship pack",
+                         "author":  "Liam556",
+                         "prefixes":  [
+                                          "astroidships"
+                                      ]
+                     },
+    "bcom":  {
+                 "modName":  "Better Combat",
+                 "author":  "willthefunperson",
+                 "prefixes":  [
+
+                              ]
+             },
+    "BSC":  {
+                "modName":  "BigBeans Ship Compilation",
+                "author":  "BigBeans",
+                "prefixes":  [
+                                 "BSC"
+                             ]
+            },
+    "bc":  {
+               "modName":  "Bird\u0027s Collection of Trinkets and Rarities",
+               "author":  "BirdWanderer",
+               "prefixes":  [
+                                "bc"
+                            ]
+           },
+    "BON":  {
+                "modName":  "Boneyard",
+                "author":  "GMan",
+                "prefixes":  [
+                                 "sp"
+                             ]
+            },
+    "bricky":  {
+                   "modName":  "Bricky Construction",
+                   "author":  "Lortus",
+                   "prefixes":  [
+                                    "bricky"
+                                ]
+               },
+    "brilliant_rework":  {
+                             "modName":  "Brilliant Rework",
+                             "author":  "joebob73",
+                             "prefixes":  [
+
+                                          ]
+                         },
+    "ORK":  {
+                "modName":  "Bultach Coalition",
+                "author":  "Pogre",
+                "prefixes":  [
+                                 "ork"
+                             ]
+            },
+    "CFT":  {
+                "modName":  "Carter\u0027s Freetraders",
+                "author":  "Dazs",
+                "prefixes":  [
+                                 "CFT"
+                             ]
+            },
+    "CSP":  {
+                "modName":  "Cebby Ship Pack",
+                "author":  "Cebby",
+                "prefixes":  [
+                                 "Cebby"
+                             ]
+            },
+    "Celestial Mount Circle":  {
+                                   "modName":  "Celestial Mount Circle",
+                                   "author":  "Originem",
+                                   "prefixes":  [
+                                                    "cmc"
+                                                ]
+                               },
+    "combatactivators":  {
+                             "modName":  "Combat Activators",
+                             "author":  "President Matt Damon",
+                             "prefixes":  [
+                                              "drone"
+                                          ]
+                         },
+    "COPS":  {
+                 "modName":  "Concordance of Protection Syndicate",
+                 "author":  "Created by J0hn Shm0.",
+                 "prefixes":  [
+                                  "COPS"
+                              ]
+             },
+    "Diktat Enhancement":  {
+                               "modName":  "Diktat Enhancement",
+                               "author":  "JAL28",
+                               "prefixes":  [
+                                                "DE"
+                                            ]
+                           },
+    "diyplanets":  {
+                       "modName":  "DIY Planets",
+                       "author":  "Kentington",
+                       "prefixes":  [
+                                        "atmo"
+                                    ]
+                   },
+    "dex":  {
+                "modName":  "Domain Explorarium Expansion",
+                "author":  "Sparranova",
+                "prefixes":  [
+                                 "DEX"
+                             ]
+            },
+    "domhist":  {
+                    "modName":  "Domain Historical Society",
+                    "author":  "Gwen + Amazigh + Vayra",
+                    "prefixes":  [
+                                     "domhist"
+                                 ]
+                },
+    "EmergentThreats_Vice":  {
+                                 "modName":  "Emergent Threats",
+                                 "author":  "vicegrip",
+                                 "prefixes":  [
+                                                  "vice"
+                                              ]
+                             },
+    "EmergentThreats_IX_Revival":  {
+                                       "modName":  "Emergent Threats: IX Revival",
+                                       "author":  "vicegrip (original by Inventor Raccoon)",
+                                       "prefixes":  [
+                                                        "ix",
+                                                        "orthrus"
+                                                    ]
+                                   },
+    "ES Pack":  {
+                    "modName":  "Emil\u0027s Mistake Pack",
+                    "author":  "Entity 8000",
+                    "prefixes":  [
+                                     "ESP"
+                                 ]
+                },
+    "seven_nexus":  {
+                        "modName":  "Epta Consortium",
+                        "author":  "xSevenG7x",
+                        "prefixes":  [
+                                         "seven"
+                                     ]
+                    },
+    "Everybody loves KoC":  {
+                                "modName":  "Everybody loves KoC",
+                                "author":  "Vikta",
+                                "prefixes":  [
+                                                 "google",
+                                                 "pulse"
+                                             ]
+                            },
+    "exoticatechnologies":  {
+                                "modName":  "Exotica Technologies",
+                                "author":  "President Matt Damon",
+                                "prefixes":  [
+                                                 "et"
+                                             ]
+                            },
+    "lyr_ehm":  {
+                    "modName":  "Experimental Hull Modifications",
+                    "author":  "lyravega",
+                    "prefixes":  [
+                                     "ehm"
+                                 ]
+                },
+    "Extra_Submarkets":  {
+                             "modName":  "Extra Submarkets",
+                             "author":  "Chyvachok",
+                             "prefixes":  [
+                                              "builtin"
+                                          ]
+                         },
+    "XLU":  {
+                "modName":  "Extratential Lanestate Union",
+                "author":  "Protonus",
+                "prefixes":  [
+                                 "xlu"
+                             ]
+            },
+    "forge_production":  {
+                             "modName":  "Forge Production",
+                             "author":  "Ontheheavens",
+                             "prefixes":  [
+
+                                          ]
+                         },
+    "fob":  {
+                "modName":  "Foundation Of Borken",
+                "author":  "Created by Originem. Theme Designed by BZone. Sprite by BZone, APuJun, Monde, Ura. Thanks for Nia, MesoTronik, DarkRevenant. Lili. Retranslated by the 8000th person.",
+                "prefixes":  [
+                                 "FOB"
+                             ]
+            },
+    "FDS":  {
+                "modName":  "Fringe Defence Syndicate",
+                "author":  "Johnny Cocks",
+                "prefixes":  [
+                                 "fds"
+                             ]
+            },
+    "FSF_MilitaryCorporation":  {
+                                    "modName":  "FSF_MilitaryCorporation",
+                                    "author":  "Author: a111164 Sprite: 北冰洋大海豹 \u0026\u0026 阿朴君",
+                                    "prefixes":  [
+                                                     "aEP"
+                                                 ]
+                                },
+    "sun_fuel_siphoning":  {
+                               "modName":  "Fuel Siphoning",
+                               "author":  "Sundog",
+                               "prefixes":  [
+
+                                            ]
+                           },
+    "Goat_Aviation_Bureau":  {
+                                 "modName":  "Goathead Aviation Bureau",
+                                 "author":  "Creator: Mimeio \nCode Assistance：Saya39,AnyIDElse,Originem,a111164\nMapping Assistance：jayjay,Ykaris\nMusic Assistance:Shadow Light,homejerry99\n\nTranslation by MrMagolor",
+                                 "prefixes":  [
+                                                  "goat"
+                                              ]
+                             },
+    "gudalanmu":  {
+                      "modName":  "Gudalanmu",
+                      "author":  "Fire_turtle (Translation by MrMagolor)",
+                      "prefixes":  [
+                                       "GL"
+                                   ]
+                  },
+    "hte":  {
+                "modName":  "High Tech Expansion",
+                "author":  "theDragn",
+                "prefixes":  [
+                                 "drg"
+                             ]
+            },
+    "hiigaran_descendants":  {
+                                 "modName":  "Hiigaran Descendants",
+                                 "author":  "Gotcha!, BombasticMori, NoFoodAfterMidnight",
+                                 "prefixes":  [
+                                                  "hii"
+                                              ]
+                             },
+    "hpst":  {
+                 "modName":  "Hillock Prototype and Station Tech",
+                 "author":  "Hankathan",
+                 "prefixes":  [
+                                  "hpst"
+                              ]
+             },
+    "HIVER":  {
+                  "modName":  "Hiver Swarm",
+                  "author":  "Dazs",
+                  "prefixes":  [
+                                   "HIVER"
+                               ]
+              },
+    "sun_hyperdrive":  {
+                           "modName":  "Hyperdrive",
+                           "author":  "Sundog",
+                           "prefixes":  [
+
+                                        ]
+                       },
+    "Interstellar Federation Refurbished -unbalanced-":  {
+                                                             "modName":  "Interstellar Federation Refurbished (unbalanced version)",
+                                                             "author":  "keptin (resuscitation shock by Vandermeer)",
+                                                             "prefixes":  [
+                                                                              "ifed"
+                                                                          ]
+                                                         },
+    "Imperium":  {
+                     "modName":  "Interstellar Imperium",
+                     "author":  "DarkRevenant \u0026 others",
+                     "prefixes":  [
+                                      "ii"
+                                  ]
+                 },
+    "JYD":  {
+                "modName":  "Junk Yard Dogs",
+                "author":  "Dazs",
+                "prefixes":  [
+                                 "JYD"
+                             ]
+            },
+    "kazeron":  {
+                    "modName":  "Kazeron Navarchy",
+                    "author":  "PeachPatrol, RaMK5/Bangle",
+                    "prefixes":  [
+
+                                 ]
+                },
+    "kingdomofterra":  {
+                           "modName":  "Kingdom of Terra",
+                           "author":  "Sinosauropteryx",
+                           "prefixes":  [
+                                            "KT"
+                                        ]
+                       },
+    "kiprad":  {
+                   "modName":  "Kipling Radiative",
+                   "author":  "tomatopaste",
+                   "prefixes":  [
+                                    "kiprad"
+                                ]
+               },
+    "kyeltziv":  {
+                     "modName":  "Kyeltziv Technocracy",
+                     "author":  "Amazigh",
+                     "prefixes":  [
+                                      "kyeltziv"
+                                  ]
+                 },
+    "ArkLeg":  {
+                   "modName":  "Legacy of Arkgneisis",
+                   "author":  "Gwyvern",
+                   "prefixes":  [
+                                    "loa",
+                                    "al"
+                                ]
+               },
+    "leg":  {
+                "modName":  "Legionarry Republic",
+                "author":  "MagmarL",
+                "prefixes":  [
+                                 "leg"
+                             ]
+            },
+    "LLI":  {
+                "modName":  "LouLan Industries",
+                "author":  "Fractal Softworks Forum id-IMustRegroupMyForces, Discord id-Komeiji Satori_0313",
+                "prefixes":  [
+                                 "ssp"
+                             ]
+            },
+    "LTA":  {
+                "modName":  "LTA",
+                "author":  "Yui",
+                "prefixes":  [
+                                 "LTA"
+                             ]
+            },
+    "Apex unofficial expansion":  {
+                                      "modName":  "Maelstrom Apex Design Collective unofficial expansion",
+                                      "author":  "Maelstrom (big thanks to Szylva!), Dragn",
+                                      "prefixes":  [
+                                                       "Apex"
+                                                   ]
+                                  },
+    "athena_dreadnought":  {
+                               "modName":  "Maelstrom Athena (mk1)",
+                               "author":  "Szilvasas",
+                               "prefixes":  [
+                                                "athena",
+                                                "athenao"
+                                            ]
+                           },
+    "athena_dreadnaughty_mk2":  {
+                                    "modName":  "Maelstrom Athena (mk2)",
+                                    "author":  "Sylva, Maelstrom",
+                                    "prefixes":  [
+                                                     "athena"
+                                                 ]
+                                },
+    "athena_dreadnaughty":  {
+                                "modName":  "Maelstrom Athena (mk3)",
+                                "author":  "Sylva",
+                                "prefixes":  [
+                                                 "athena"
+                                             ]
+                            },
+    "BDRY_unofficial_exp_personnal":  {
+                                          "modName":  "Maelstrom Blackrock Drive Yards unofficial expansion",
+                                          "author":  "Maelstrom (big thanks to Cycerin and Szylva! also thanks to banano for helping out with the new sprite)",
+                                          "prefixes":  [
+                                                           "brdy"
+                                                       ]
+                                      },
+    "Dabble mael":  {
+                        "modName":  "Maelstrom DabbledAvionics",
+                        "author":  "Protonus and credits from the original Diable Avionics, by Flashfrozen, Maintained by Tartiflette, with the participation of Debido.",
+                        "prefixes":  [
+                                         "diableavionics"
+                                     ]
+                    },
+    "Dassaylt Megallan unofficial expansion":  {
+                                                   "modName":  "Maelstrom Dassault \u0026 Megallan unofficial expansion",
+                                                   "author":  "Maelstrom (big thanks to Szylva!), Soren",
+                                                   "prefixes":  [
+
+                                                                ]
+                                               },
+    "captinjoehenrymod":  {
+                              "modName":  "Maelstrom Diable Dreadnoughts Reborn",
+                              "author":  "Captinjoehenry",
+                              "prefixes":  [
+
+                                           ]
+                          },
+    "DIABLEAVIONICS unofficial expansion":  {
+                                                "modName":  "Maelstrom DIABLEAVIONICS (ora, xhan, scy required) unofficial expansion 2.0.0",
+                                                "author":  "Maelstrom \u0026 other ppl",
+                                                "prefixes":  [
+                                                                 "diableavionics"
+                                                             ]
+                                            },
+    "FED unofficial expansion":  {
+                                     "modName":  "Maelstrom FED unofficial expansion",
+                                     "author":  "Maelstrom (big thanks to Szylva!), sleepyfish",
+                                     "prefixes":  [
+
+                                                  ]
+                                 },
+    "Imperium_unofficial_exp":  {
+                                    "modName":  "Maelstrom Interstellar Imperium Unofficial Expansion",
+                                    "author":  "Maelstrom (big thanks to DarkRevenant and Szylva!), AppleSauce for ship variants!",
+                                    "prefixes":  [
+                                                     "ii"
+                                                 ]
+                                },
+    "per_coal":  {
+                     "modName":  "Maelstrom mixed ship pack (blackrock, diable, shadowyards, VIC required)   V1.0.8",
+                     "author":  "Kolt, Maelstrom",
+                     "prefixes":  [
+                                      "pc"
+                                  ]
+                 },
+    "Neutrino_unofficial_exp":  {
+                                    "modName":  "Maelstrom Neutrino unofficial expansion",
+                                    "author":  "Maelstrom (big thanks to Tomatopaste and Flashfrozen(rip))",
+                                    "prefixes":  [
+                                                     "neutrino"
+                                                 ]
+                                },
+    "ORA_unofficial_exp":  {
+                               "modName":  "Maelstrom Outer Rim Alliance unofficial expansion",
+                               "author":  "Maelstrom (big thanks to Tartiflette, Banano and Szylva!)",
+                               "prefixes":  [
+                                                "ora"
+                                            ]
+                           },
+    "Pearson unofficial expansion":  {
+                                         "modName":  "Maelstrom Pearson Exotronics (neutrino required) unofficial expansion V1.0.0",
+                                         "author":  "Maelstrom (big thanks to Szylva!), tomatopaste",
+                                         "prefixes":  [
+                                                          "PSE"
+                                                      ]
+                                     },
+    "pbc unofficial expansion":  {
+                                     "modName":  "Maelstrom Pegasus Belt Council (PBC bootleg required) unofficial expansion V1.0.0",
+                                     "author":  "Maelstrom (big thanks to Szylva!), Celestis, AppleSauce for variants",
+                                     "prefixes":  [
+                                                      "pbc"
+                                                  ]
+                                 },
+    "prv_unofficial_exp":  {
+                               "modName":  "Maelstrom prv Starworks unofficial expansion",
+                               "author":  "Maelstrom (big thanks to Prav and Szylva!)",
+                               "prefixes":  [
+                                                "prv"
+                                            ]
+                           },
+    "SCY unofficial expansion":  {
+                                     "modName":  "Maelstrom SCY unofficial expansion",
+                                     "author":  "Maelstrom/Banano (big thanks to Szylva!), Tartiflette, Meelock for ship descriptions",
+                                     "prefixes":  [
+                                                      "SCY"
+                                                  ]
+                                 },
+    "MSE":  {
+                "modName":  "Maelstrom Shadowyards unofficial expansion",
+                "author":  "Maelstrom, Flashfrozen (MIA) o7",
+                "prefixes":  [
+                                 "ms"
+                             ]
+            },
+    "superweapons":  {
+                         "modName":  "Maelstrom Superweapons Arsenal",
+                         "author":  "Mira",
+                         "prefixes":  [
+                                          "sw"
+                                      ]
+                     },
+    "superweapons older version":  {
+                                       "modName":  "Maelstrom Superweapons Arsenal Older Version",
+                                       "author":  "Mira",
+                                       "prefixes":  [
+                                                        "swo"
+                                                    ]
+                                   },
+    "Sylphon unofficial expansion":  {
+                                         "modName":  "Maelstrom Sylphon unofficial expansion",
+                                         "author":  "Maelstrom (big thanks to Szylva!), Nia and Nicke, AppleSauce for variants",
+                                         "prefixes":  [
+                                                          "SRD"
+                                                      ]
+                                     },
+    "Templars unofficial expansion":  {
+                                          "modName":  "Maelstrom Templars unofficial expansion",
+                                          "author":  "Maelstrom (big thanks to Szylva!), Cycerin and that kind stranger dude",
+                                          "prefixes":  [
+                                                           "Apex"
+                                                       ]
+                                      },
+    "TraverseDesignBureau unofficial expansion":  {
+                                                      "modName":  "Maelstrom TraverseDesignBureau unofficial expansion",
+                                                      "author":  "Maelstrom (big thanks to Szylva!), \n Design/Production: Coldstream [Creator]  \nTechnical Guidance: AnyIDElse    影之光 野鸦之神[贴图] \nSpecial Thanks: 2020拜拜啦  烤乳猪  Greatfhgbj  ZeroXenon  Ykaris  homejerry99  CVB～Taiho.0  鸽子  幻音以及群内一大群的水友提供的贴图和帮助",
+                                                      "prefixes":  [
+                                                                       "TDB"
+                                                                   ]
+                                                  },
+    "VIC_unofficial_exp":  {
+                               "modName":  "Maelstrom VIC unofficial expansion",
+                               "author":  "Maelstrom, Astarat, Szylva (vector thrusters), banano of doom for helping out with making sprite adjustements, vayra for the vicslaught, AppleSauce for finding issues and making variants!",
+                               "prefixes":  [
+                                                "vic"
+                                            ]
+                           },
+    "XhanEmpire unofficial expansion":  {
+                                            "modName":  "Maelstrom XhanEmpire (athena dreadnought mk3 required) unofficial expansion V2.0.0",
+                                            "author":  "Maelstrom (big thanks to Peplat and Szylva!), AppleSauce for ship variants!",
+                                            "prefixes":  [
+                                                             "XHAN"
+                                                         ]
+                                        },
+    "Mayasuran Navy":  {
+                           "modName":  "Mayasuran Navy",
+                           "author":  "Knight Chase",
+                           "prefixes":  [
+                                            "MSS"
+                                        ]
+                       },
+    "mik":  {
+                "modName":  "Mikan Kindred",
+                "author":  "MikogamiMikan",
+                "prefixes":  [
+                                 "mik"
+                             ]
+            },
+    "MilOdyssey+":  {
+                        "modName":  "Militarized Odyssey+",
+                        "author":  "vicegrip",
+                        "prefixes":  [
+                                         "vice"
+                                     ]
+                    },
+    "dk_mis_096":  {
+                       "modName":  "Missile and Sundry 0.96a RC10",
+                       "author":  "DatonKallandor",
+                       "prefixes":  [
+                                        "blinker",
+                                        "hammer",
+                                        "atropos",
+                                        "sabot",
+                                        "lights"
+                                    ]
+                   },
+    "MissileShipOverhaul":  {
+                                "modName":  "Missile Ship Overhaul",
+                                "author":  "TheDeviL234",
+                                "prefixes":  [
+                                                 "mod"
+                                             ]
+                            },
+    "missingsuperships":  {
+                              "modName":  "Missing Dreadnoughts Ships",
+                              "author":  "Scarface, FireIce",
+                              "prefixes":  [
+                                               "missp"
+                                           ]
+                          },
+    "missingships":  {
+                         "modName":  "Missing Ships",
+                         "author":  "Scarface,Nautilus81,Archaeon",
+                         "prefixes":  [
+                                          "missp"
+                                      ]
+                     },
+    "MoXIV":  {
+                  "modName":  "Moar XIV",
+                  "author":  "Slavodan",
+                  "prefixes":  [
+                                   "Owl"
+                               ]
+              },
+    "advent_seven":  {
+                         "modName":  "Neoteric Advent",
+                         "author":  "Rav0n",
+                         "prefixes":  [
+                                          "Ex7s",
+                                          "Mayawati",
+                                          "Singularity"
+                                      ]
+                     },
+    "nexerelin":  {
+                      "modName":  "Nexerelin",
+                      "author":  "Histidine (original by Zaphide)",
+                      "prefixes":  [
+                                       "nex"
+                                   ]
+                  },
+    "OcuA":  {
+                 "modName":  "Oculian Armada",
+                 "author":  "Protonus \u0026 EI",
+                 "prefixes":  [
+                                  "ocua"
+                              ]
+             },
+    "vice_orr":  {
+                     "modName":  "Onslaught Radical Rearming",
+                     "author":  "vicegrip",
+                     "prefixes":  [
+                                      "orr"
+                                  ]
+                 },
+    "Ophiuchus":  {
+                      "modName":  "Ophiuchus",
+                      "author":  "Converted by Namesarehard in 0.91, created and revived by Protonus",
+                      "prefixes":  [
+
+                                   ]
+                  },
+    "JYDR":  {
+                 "modName":  "Ore Refinery",
+                 "author":  "Dazs",
+                 "prefixes":  [
+
+                              ]
+             },
+    "oas":  {
+                "modName":  "Osiris Alliance",
+                "author":  "",
+                "prefixes":  [
+                                 "oas"
+                             ]
+            },
+    "pearson_exotronics":  {
+                               "modName":  "Pearson Exotronics",
+                               "author":  "tomatopaste",
+                               "prefixes":  [
+                                                "PSE"
+                                            ]
+                           },
+    "TAR":  {
+                "modName":  "Practice Targets",
+                "author":  "Created by Tartiflette. Based on an idea from Foxer360.",
+                "prefixes":  [
+                                 "TAR"
+                             ]
+            },
+    "prvExtra":  {
+                     "modName":  "prv Extraworks",
+                     "author":  "Prav",
+                     "prefixes":  [
+                                      "prv"
+                                  ]
+                 },
+    "prvPath":  {
+                    "modName":  "prv Path",
+                    "author":  "Prav",
+                    "prefixes":  [
+                                     "prv"
+                                 ]
+                },
+    "pt_qolpack":  {
+                       "modName":  "QoL Pack",
+                       "author":  "PureTilt",
+                       "prefixes":  [
+
+                                    ]
+                   },
+    "randomweapons":  {
+                          "modName":  "Random Weapon Collection",
+                          "author":  "joebob73",
+                          "prefixes":  [
+                                           "rwc"
+                                       ]
+                      },
+    "roider":  {
+                   "modName":  "Roider Union",
+                   "author":  "SafariJohn",
+                   "prefixes":  [
+                                    "roider"
+                                ]
+               },
+    "rotcesrats":  {
+                       "modName":  "RotcesRats",
+                       "author":  "Amazigh",
+                       "prefixes":  [
+                                        "rr"
+                                    ]
+                   },
+    "sanguinary_autonomist_defectors":  {
+                                            "modName":  "Sanguinary Autonomist Defectors",
+                                            "author":  "Snrasha",
+                                            "prefixes":  [
+                                                             "sanguinary"
+                                                         ]
+                                        },
+    "sikr":  {
+                 "modName":  "San-Iris",
+                 "author":  "Sikair",
+                 "prefixes":  [
+                                  "sikr"
+                              ]
+             },
+    "scan_those_gates":  {
+                             "modName":  "Scan Those Gates",
+                             "author":  "AERO",
+                             "prefixes":  [
+                                              "stg"
+                                          ]
+                         },
+    "sv":  {
+               "modName":  "SCAV-CO Ship Works",
+               "author":  "ZanZan",
+               "prefixes":  [
+                                "sv"
+                            ]
+           },
+    "Scrapyard":  {
+                      "modName":  "Scrapyard Armories",
+                      "author":  "fellout",
+                      "prefixes":  [
+                                       "sa"
+                                   ]
+                  },
+    "SCY":  {
+                "modName":  "Scy Nation",
+                "author":  "Created by Tartiflette. Music by Fastland. With the help of Debido, Mesotronik, Dark Revenant, Histidine, Silentstormpt, SniZupGun, Deathfly, 19_30 and many others.",
+                "prefixes":  [
+                                 "SCY"
+                             ]
+            },
+    "SCYUtility":  {
+                       "modName":  "SCY Nation Utility",
+                       "author":  "Hatanis. Original mod created by Tartiflette. Music by Fastland. With the help of Debido, Mesotronik, Dark Revenant, Histidine, Silentstormpt, SniZupGun, Deathfly, 19_30 and many others.",
+                       "prefixes":  [
+                                        "SCY",
+                                        "SCYUtility"
+                                    ]
+                   },
+    "Seafood":  {
+                    "modName":  "Seafood Shipworks",
+                    "author":  "LILI \u0026 ZeroXenon",
+                    "prefixes":  [
+                                     "SF"
+                                 ]
+                },
+    "SEEKER":  {
+                   "modName":  "Seeker - Unidentified Contact",
+                   "author":  "Tartiflette",
+                   "prefixes":  [
+                                    "SKR"
+                                ]
+               },
+    "bb_plus":  {
+                    "modName":  "Sephira Conclave",
+                    "author":  "Mayu",
+                    "prefixes":  [
+                                     "bbplus"
+                                 ]
+                },
+    "m_sephira_refits":  {
+                             "modName":  "Sephira Refits",
+                             "author":  "sneed",
+                             "prefixes":  [
+                                              "sephira"
+                                          ]
+                         },
+    "shipmasterysystem":  {
+                              "modName":  "Ship Mastery System",
+                              "author":  "qcwxezda",
+                              "prefixes":  [
+                                               "sms"
+                                           ]
+                          },
+    "swp":  {
+                "modName":  "Ship/Weapon Pack Unofficial 0.95a",
+                "author":  "DarkRevenant, ported by Dal",
+                "prefixes":  [
+                                 "swp"
+                             ]
+            },
+    "mayu_specialupgrades":  {
+                                 "modName":  "Special Hullmod Upgrades",
+                                 "author":  "Mayu",
+                                 "prefixes":  [
+                                                  "shu"
+                                              ]
+                             },
+    "smc_coalition":  {
+                          "modName":  "Stardust Merchant Coalition",
+                          "author":  "Wind Tempest",
+                          "prefixes":  [
+                                           "smc"
+                                       ]
+                      },
+    "Starsin":  {
+                    "modName":  "Starsin",
+                    "author":  "Kyris",
+                    "prefixes":  [
+
+                                 ]
+                },
+    "steelcardinal":  {
+                          "modName":  "Steel Cardinal",
+                          "author":  "SirOsse",
+                          "prefixes":  [
+                                           "SC"
+                                       ]
+                      },
+    "hakkari3":  {
+                     "modName":  "Stinger Shipyards",
+                     "author":  "turkler",
+                     "prefixes":  [
+                                      "sex"
+                                  ]
+                 },
+    "hakkari2":  {
+                     "modName":  "Stinger Shipyards",
+                     "author":  "turkler",
+                     "prefixes":  [
+                                      "sex"
+                                  ]
+                 },
+    "alcoholism":  {
+                       "modName":  "Substance.Abuse",
+                       "author":  "SirHartley",
+                       "prefixes":  [
+                                        "alcoholism"
+                                    ]
+                   },
+    "timid_supply_forging":  {
+                                 "modName":  "Supply Forging",
+                                 "author":  "Techpriest",
+                                 "prefixes":  [
+
+                                              ]
+                             },
+    "supportships":  {
+                         "modName":  "Support Ships Pack",
+                         "author":  "ForestFighters",
+                         "prefixes":  [
+                                          "supportships"
+                                      ]
+                     },
+    "Terraforming \u0026 Station Construction":  {
+                                                     "modName":  "Terraforming \u0026 Station Construction",
+                                                     "author":  "boggled",
+                                                     "prefixes":  [
+                                                                      "boggled"
+                                                                  ]
+                                                 },
+    "Templars":  {
+                     "modName":  "The Knights Templar",
+                     "author":  "DarkRevenant and Cycerin",
+                     "prefixes":  [
+                                      "tem"
+                                  ]
+                 },
+    "mayorate":  {
+                     "modName":  "The Mayorate",
+                     "author":  "kazi",
+                     "prefixes":  [
+                                      "ilk"
+                                  ]
+                 },
+    "nomads":  {
+                   "modName":  "The Nomads",
+                   "author":  "Trylobot",
+                   "prefixes":  [
+                                    "nom"
+                                ]
+               },
+    "TBJ":  {
+                "modName":  "There Be Juggernaughts",
+                "author":  "Protonus",
+                "prefixes":  [
+                                 "tbj"
+                             ]
+            },
+    "thongredacto":  {
+                         "modName":  "Thog\u0027s [REDACTED]",
+                         "author":  "Thog",
+                         "prefixes":  [
+                                          "thg"
+                                      ]
+                     },
+    "thong":  {
+                  "modName":  "Thog\u0027s Domain",
+                  "author":  "Thog",
+                  "prefixes":  [
+                                   "thg"
+                               ]
+              },
+    "THI":  {
+                "modName":  "Tiandong Heavy Industries",
+                "author":  "-MesoTroniK",
+                "prefixes":  [
+                                 "tiandong"
+                             ]
+            },
+    "TTE":  {
+                "modName":  "Tri-Tac Expansion",
+                "author":  "Dazs",
+                "prefixes":  [
+                                 "TTE"
+                             ]
+            },
+    "TTSC":  {
+                 "modName":  "Tri-Tac Special Circumstances",
+                 "author":  "Dazs",
+                 "prefixes":  [
+                                  "TTSC"
+                              ]
+             },
+    "underworld":  {
+                       "modName":  "Underworld",
+                       "author":  "DarkRevenant",
+                       "prefixes":  [
+                                        "uw"
+                                    ]
+                   },
+    "unionrailsystems":  {
+                             "modName":  "Union Rail-Systems",
+                             "author":  "Quacken",
+                             "prefixes":  [
+                                              "unionrailsystems"
+                                          ]
+                         },
+    "unthemedweapons":  {
+                            "modName":  "Unthemed Weapons Collection",
+                            "author":  "qcwxezda",
+                            "prefixes":  [
+                                             "wpnxt"
+                                         ]
+                        },
+    "valkyrian":  {
+                      "modName":  "Valkyrian",
+                      "author":  "Original Author:ValkyriaL\nCurrent Author:Originem\nNew Texture Reset:Laomi\nAssistance:FAX, Shadow Light\nTranslation: persocom01",
+                      "prefixes":  [
+                                       "valk"
+                                   ]
+                  },
+    "vdba":  {
+                 "modName":  "Vexx\u0027s Arma",
+                 "author":  "Lightning Dog",
+                 "prefixes":  [
+                                  "vdba",
+                                  "vdbc"
+                              ]
+             },
+    "vic":  {
+                "modName":  "VIC",
+                "author":  "Astarat, PureTilt",
+                "prefixes":  [
+                                 "vic"
+                             ]
+            },
+    "vulpoids":  {
+                     "modName":  "Vulpoids - Lost Project",
+                     "author":  "confer0 \u0026 Yanzihko",
+                     "prefixes":  [
+                                      "vulpoid",
+                                      "special"
+                                  ]
+                 },
+    "wotani_federation":  {
+                              "modName":  "Wotani Federation",
+                              "author":  "Grimnir, with art by Rodrigo Vega and implementation by Vayra",
+                              "prefixes":  [
+                                               "wotani"
+                                           ]
+                          },
+    "XhanEmpire":  {
+                       "modName":  "Xhan Empire",
+                       "author":  "Peplat",
+                       "prefixes":  [
+                                        "XHAN"
+                                    ]
+                   },
+    "YNA":  {
+                "modName":  "Ynadar Nexus Alliance",
+                "author":  "Protonus",
+                "prefixes":  [
+                                 "yna"
+                             ]
+            },
+    "yunrucore":  {
+                      "modName":  "YunruCore",
+                      "author":  "Yunru",
+                      "prefixes":  [
+                                       "yunru"
+                                   ]
+                  },
+    "yunru_hegemon":  {
+                          "modName":  "Yunru\u0027s Glinthawk Operations",
+                          "author":  "Yunru",
+                          "prefixes":  [
+                                           "yunru"
+                                       ]
+                      },
+    "zzzMUDA":  {
+                    "modName":  "zzzMilitaristic Utilitarian Defensive Alliance",
+                    "author":  "AlexAtheos (edited sprites by Tartiflette)",
+                    "prefixes":  [
+
+                                 ]
+                },
+    "Erexeus_Tech_Complex_FactionMod":  {
+                                            "modName":  "厄雷修斯技术综合体",
+                                            "author":  "ShioZakana",
+                                            "prefixes":  [
+                                                             "ETC"
+                                                         ]
+                                        }
+}
